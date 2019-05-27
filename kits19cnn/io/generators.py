@@ -3,6 +3,7 @@ import nibabel as nib
 import os
 from skimage.transform import resize
 from glob import glob
+from kits19cnn.io.gen_utils import BaseTransformGenerator
 
 class Slim3DGenerator(BaseTransformGenerator):
     """
