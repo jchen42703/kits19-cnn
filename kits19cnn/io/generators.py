@@ -24,7 +24,7 @@ class Slim3DGenerator(BaseTransformGenerator):
                  transform = None, steps_per_epoch = 1000, shuffle = True):
 
         BaseTransformGenerator.__init__(self, list_IDs = list_IDs, data_dirs = None, batch_size = batch_size,
-                               n_channels = input_shape[-1], n_classes = n_classes, ndim = 3,
+                               n_channels = input_shape[0], n_classes = n_classes, ndim = 3,
                                transform = transform, steps_per_epoch = steps_per_epoch, shuffle = shuffle)
 
     def data_gen(self, list_IDs_temp):
@@ -137,8 +137,6 @@ class SliceGenerator(BaseTransformGenerator):
             # loads data as a numpy arr and then changes the type to float32
             x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), -1)
             y_train = nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata()
-            if self.n_classes > 1: # no point to run this when binary (foreground/background)
-                y_train = get_multi_class_labels(y_train, n_labels = self.n_classes, remove_background = False)
             # extracting slice:
             if pos_sample:
                 slice_idx = get_positive_idx(y_train)[0]
