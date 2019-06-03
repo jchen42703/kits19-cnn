@@ -81,7 +81,7 @@ def sampling(args):
     return z_mean + K.exp(0.5 * log_z_var) * epsilon
 
 
-def loss(input_shape, inp, out_VAE, z_mean, log_z_var, e=1e-8, mode = "normal"):
+def loss(input_shape, inp, out_VAE, z_mean, log_z_var, e=1e-8):
     """
     loss(input_shape, inp, out_VAE, z_mean, z_var, e=1e-8)
     ------------------------------------------------------
@@ -136,7 +136,7 @@ def loss(input_shape, inp, out_VAE, z_mean, log_z_var, e=1e-8, mode = "normal"):
         return -dice + 0.1 * loss_L2 + 0.1 * loss_KL
     return loss_
 
-def build_model(input_shape=(4, 160, 192, 128), n_classes=3):
+def build_model(input_shape=(4, 160, 192, 128), n_classes=3, lr = 1e-4):
     """
     build_model(input_shape=(4, 160, 192, 128))
     -------------------------------------------
@@ -270,13 +270,9 @@ def build_model(input_shape=(4, 160, 192, 128), n_classes=3):
     out = out_GT
     model = Model(inp, out)  # Create the model
     model.compile(
-        adam(lr=1e-4),
-        loss(input_shape, inp, out_VAE, z_mean, log_z_var, mode = "normal"),
+        adam(lr=lr),
+        loss(input_shape, inp, out_VAE, z_mean, log_z_var),
         metrics=['accuracy']
             )
 
-    import keras.backend as K
-    mean = K.function([inp], [z_mean])
-    var = K.function([inp], [log_z_var])
-
-    return model, mean, var
+    return model
