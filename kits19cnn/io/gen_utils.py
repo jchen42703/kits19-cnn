@@ -9,19 +9,13 @@ class BaseGenerator(keras.utils.Sequence):
     Based on https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
     Attributes:
       list_IDs: filenames (.nii files); must be same for training and labels
-      data_dirs: list of [training_dir, labels_dir]
       batch_size: int of desired number images per epoch
-      n_channels: <-
-      n_classes: <-
       shuffle: boolean on whether or not to shuffle the dataset
     """
-    def __init__(self, list_IDs, data_dirs, batch_size, n_channels, n_classes, shuffle = True):
+    def __init__(self, list_IDs, batch_size, shuffle=True):
         # lists of paths to images
         self.list_IDs = list_IDs
-        self.data_dirs = data_dirs
         self.batch_size = batch_size
-        self.n_channels = n_channels
-        self.n_classes = n_classes
         self.shuffle = shuffle
         self.indexes = np.arange(len(self.list_IDs))
 
@@ -29,9 +23,9 @@ class BaseGenerator(keras.utils.Sequence):
         return int(np.ceil(len(self.list_IDs) / float(self.batch_size)))
 
     def __getitem__(self, idx):
-        '''
+        """
         Defines the fetching and on-the-fly preprocessing of data.
-        '''
+        """
         # file names
         indexes = self.indexes[idx*self.batch_size:(idx+1)*self.batch_size]
         # Find list of IDs
@@ -48,13 +42,13 @@ class BaseGenerator(keras.utils.Sequence):
             np.random.shuffle(self.indexes)
 
     def data_gen(self, list_IDs_temp):
-        '''
+        """
         Preprocesses the data
         Args:
             list_IDs_temp: temporary batched list of ids (filenames)
         Returns
             x, y
-        '''
+        """
         raise NotImplementedError
 
 class BaseTransformGenerator(BaseGenerator):
@@ -62,21 +56,15 @@ class BaseTransformGenerator(BaseGenerator):
     Loads data and applies data augmentation with `batchgenerators.transforms`.
     Attributes:
         list_IDs: list of filenames
-        data_dirs: list of paths to both the input dir and labels dir
         batch_size: The number of images you want in a single batch
-        n_channels: number of channels
-        n_classes: number of unique labels excluding the background class (i.e. binary; n_classes = 1)
-        ndim: number of dimensions of the input (excluding the batch_size and n_channels axes)
         transform (Transform instance): If you want to use multiple Transforms, use the Compose Transform.
         steps_per_epoch: steps per epoch during training (number of samples per epoch = steps_per_epoch * batch_size )
         shuffle: boolean on whether to shuffle the dataset between epochs
     """
-    def __init__(self, list_IDs, data_dirs, batch_size, n_channels, n_classes, ndim,
-                transform = None, steps_per_epoch = 1000, shuffle = True):
+    def __init__(self, list_IDs, batch_size, transform=None, steps_per_epoch=1000, shuffle=True):
 
-        BaseGenerator.__init__(self, list_IDs = list_IDs, data_dirs = data_dirs, batch_size = batch_size,
-                               n_channels = n_channels, n_classes = n_classes, shuffle = shuffle)
-        self.ndim = ndim
+        BaseGenerator.__init__(self, list_IDs=list_IDs, batch_size=batch_size,
+                               shuffle=shuffle)
         self.transform = transform
         n_samples = len(self.list_IDs)
         self.indexes = np.arange(n_samples)
@@ -117,8 +105,6 @@ class BaseTransformGenerator(BaseGenerator):
         """
         Updates indexes after each epoch
         """
-        # self.img_idx = np.arange(len(self.x))
-        # self.indexes = np.arange(len(self.indexes))
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
