@@ -1,7 +1,7 @@
 # loss fn
-import keras
+import tensorflow.keras as keras
 import tensorflow as tf
-import keras.backend as K
+import tensorflow.keras.backend as K
 
 def dice_plus_xent_loss(y_true, y_pred, smooth=1e-5, out_act='sigmoid'):
     """
