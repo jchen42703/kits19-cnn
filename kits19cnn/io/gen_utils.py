@@ -77,6 +77,7 @@ class BaseTransformGenerator(BaseGenerator):
             "the number of provided images.")
             self.adjust_indexes(n_idx)
             print("Done!")
+            np.random.shuffle(self.indexes)
         assert self.indexes.size == n_idx
 
     def adjust_indexes(self, n_idx):
