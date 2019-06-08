@@ -120,7 +120,6 @@ class SliceGenerator(BaseTransformGenerator):
         images_x = []
         images_y = []
         for case_id in fpaths_temp:
-            print(case_id)
             # loads data as a numpy arr and then adds the channel + batch size dimensions
             x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), 0)
             y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0)
