@@ -122,8 +122,8 @@ class SliceGenerator(BaseTransformGenerator):
         for case_id in fpaths_temp:
             print(case_id)
             # loads data as a numpy arr and then adds the channel + batch size dimensions
-            x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii.gz")).get_fdata(), 0)
-            y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata(), 0)
+            x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), 0)
+            y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0)
             x_train = np.clip(x_train, -200, 300)
             # extracting slice:
             if pos_sample:
@@ -146,7 +146,7 @@ class SliceGenerator(BaseTransformGenerator):
         for (idx, case_id) in enumerate(self.fpaths):
             total = len(self.fpaths)
             print("Progress: {0}/{1}\nProcessing: {2}".format(idx+1, total, case_id))
-            y_train = np.expand_dims(np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata(), 0), 0)
+            y_train = np.expand_dims(np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0), 0)
             pos_slice_dict[case_id] = self.get_pos_slice_idx(y_train, return_all=True)
         return pos_slice_dict
 
