@@ -51,6 +51,31 @@ def soft_dice(y_true, y_pred, smooth=1., smooth_in_numerator=1., square_numerato
     result = K.mean(((2 * intersect + smooth_in_nom) / (denom + smooth)))
     return result
 
+def dice_hard(y_true, y_pred, threshold=0.5, axis=[1,2,3], smooth=1e-5):
+    """
+    Non-differentiable Sørensen–Dice coefficient for comparing the similarity
+    of two batch of data, usually be used for binary image segmentation i.e. labels are binary.
+    Args:
+        y_pred : tensor
+            A distribution with shape: [batch_size, ....], (any dimensions).
+        y_true : tensor
+            A distribution with shape: [batch_size, ....], (any dimensions).
+        threshold : float
+            The threshold value to be true.
+        axis : list of integer
+            All dimensions are reduced, default ``[1,2,3]``.
+        smooth : float
+            This small value will be added to the numerator and denominator.
+    """
+    y_pred = tf.cast(y_pred > threshold, dtype=tf.float32)
+    y_true = tf.cast(y_true > threshold, dtype=tf.float32)
+    inse = tf.reduce_sum(tf.multiply(y_pred, y_true), axis=axis)
+    l = tf.reduce_sum(y_pred, axis=axis)
+    r = tf.reduce_sum(y_true, axis=axis)
+    hard_dice = (2. * inse + smooth) / (l + r + smooth)
+    hard_dice = tf.reduce_mean(hard_dice)
+    return hard_dice
+
 def evaluate_official(y_true, y_pred):
     """
     Official evaluation metric. (numpy)
