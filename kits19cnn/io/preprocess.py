@@ -34,10 +34,14 @@ class Preprocessor(object):
 
         if clip_values is None:
             self.clip_values = self.get_clip_values()
+        else:
+            self.clip_values = clip_values
+
         self.cases = cases
         if cases is None:
-            self.cases = os.listdir(self.in_dir)[:-2]
-            assert self.cases is not None, "Please make sure that in_dir refers to the kits19/data directory."
+            self.cases = [case for case in os.listdir(self.in_dir) \
+                          if case.startswith("case")]
+            assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
         # making directory if out_dir doesn't exist
         if not isdir(out_dir):
             os.mkdir(out_dir)
@@ -77,8 +81,8 @@ class Preprocessor(object):
             image = nib.load(join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
             label = nib.load(join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
             preprocessed_img, preprocessed_label = self.preprocess_2d(image, label, coords=False)
-            out = self.save_imgs(preprocessed_img, preprocessed_label, case)
-            print(out)
+            self.save_imgs(preprocessed_img, preprocessed_label, case)
+        print("Done!")
 
     def save_imgs(self, image, mask, case, pred=False):
         """
