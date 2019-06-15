@@ -16,9 +16,9 @@ def dice_plus_xent_loss(y_true, y_pred, smooth=1e-5, out_act='sigmoid'):
     """
     y_pred = tf.cast(y_pred, tf.float32)
     if out_act == "softmax":
-        loss_xent = K.categorical_crossentropy(y_true, y_pred)
+        l_xent = K.categorical_crossentropy(y_true, y_pred)
     elif out_act == "sigmoid":
-        loss_xent = K.mean(K.binary_crossentropy(y_true, y_pred), axis=1)
+        l_xent = K.mean(K.binary_crossentropy(y_true, y_pred), axis=1)
     # Dice as according to the paper:
     l_dice = soft_dice_loss(y_true, y_pred)
     return l_dice + l_xent
