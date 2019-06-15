@@ -43,3 +43,24 @@ def get_transforms(patch_shape=(192, 192), other_transforms=None, minimal=True, 
         transforms_list = transforms_list + other_transforms
     composed = Compose(transforms_list)
     return composed
+
+def save_load_dict(pos_slice_dict=None, mode="save", fname=None):
+    """
+    Args:
+        pos_slice_dict (any): must be dict when saving
+        mode (str): either "save" or "load"
+        fname (str): path to the json you want to save to (must include the .json fname)
+    Returns:
+        None
+    """
+    import json
+    if mode == "save":
+        print("Saving pos_slice_dict at {0}".format(fname))
+        with open(fname, "w") as fp:
+            json.dump(pos_slice_dict, fp)
+
+    elif mode == "load":
+        print("Loading {0}".format(fname))
+        with open(fname, "r") as fp:
+            pos_slice_dict = json.load(fp)
+        return pos_slice_dict
