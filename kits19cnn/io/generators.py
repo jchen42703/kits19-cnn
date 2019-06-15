@@ -33,8 +33,12 @@ class Slim3DGenerator(BaseTransformGenerator):
         images_y = []
         for case_id in fpaths_temp:
             # loads data as a numpy arr and then adds the channel + batch size dimensions
-            x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), 0)
-            y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0)
+            try:
+                x_train = np.expand_dims(np.load(os.path.join(case_id, "imaging.npy")), 0)
+                y_train = np.expand_dims(np.load(os.path.join(case_id, "segmentation.npy")), 0)
+            except:
+                x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), 0)
+                y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0)
             x_train = np.clip(x_train, -200, 300)
             images_x.append(x_train), images_y.append(y_train)
         return (images_x, images_y)
@@ -48,20 +52,28 @@ class SliceGenerator(BaseTransformGenerator):
         fpaths: list of filenames
         batch_size: The number of images you want in a single batch
         n_pos: The number of positive class 2D images to include in a batch
-        get_pos_dict (boolean): whether or not to get the dictionary of positive class slice indices
+        pos_slice_dict:
+            (None): if you want to automatically get the dictionary of positive class slice indices
+            (dict): if you want to manually provide it
+            (anything else): if you want to find the slices on the fly
         transform (Transform instance): If you want to use multiple Transforms, use the Compose Transform.
         step_per_epoch:
         shuffle: boolean
     """
-    def __init__(self, fpaths, batch_size=2, n_pos=1, get_pos_dict=False, transform=None,
+    def __init__(self, fpaths, batch_size=2, n_pos=1, pos_slice_dict=None, transform=None,
                  steps_per_epoch=None, shuffle=True):
 
         BaseTransformGenerator.__init__(self, fpaths=fpaths, batch_size=batch_size, transform=transform,
                                         steps_per_epoch=steps_per_epoch, shuffle=shuffle)
-        if get_pos_dict:
+        # handling different cases with positive class slicing;
+        # getting it automatically, manually provided, or on the fly
+        if pos_slice_dict is None:
             self.pos_slice_dict = self.get_all_pos_slice_idx()
+        elif isinstance(pos_slice_dict, dict):
+            self.pos_slice_dict = pos_slice_dict
         else:
             self.pos_slice_dict = None
+
         self.n_pos = n_pos
         if n_pos == 0:
             print("WARNING! Your data is going to be randomly sliced.")
@@ -94,7 +106,7 @@ class SliceGenerator(BaseTransformGenerator):
             # concatenating all the corresponding data
             X, Y = X_pos+X_rand, Y_pos+Y_rand
             # shuffling the order of the positive/random patches
-            np.random.shuffle(X), np.random.shuffle(Y)
+            X, Y = self.shuffle_list(X, Y)
         # random sampling
         elif self.mode == "rand":
             X, Y = self.data_gen(fpaths_temp, pos_sample=False)
@@ -120,10 +132,13 @@ class SliceGenerator(BaseTransformGenerator):
         images_x = []
         images_y = []
         for case_id in fpaths_temp:
-            print(case_id)
             # loads data as a numpy arr and then adds the channel + batch size dimensions
-            x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), 0)
-            y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0)
+            try:
+                x_train = np.expand_dims(np.load(os.path.join(case_id, "imaging.npy")), 0)
+                y_train = np.expand_dims(np.load(os.path.join(case_id, "segmentation.npy")), 0)
+            except:
+                x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), 0)
+                y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0)
             x_train = np.clip(x_train, -200, 300)
             # extracting slice:
             if pos_sample:
@@ -171,10 +186,22 @@ class SliceGenerator(BaseTransformGenerator):
         # "n_dims" numpy arrays of all possible positive pixel indices for the label
         pos_idx = np.nonzero(label)[2]
         if return_all:
-            return tuple(pos_idx.squeeze())
+            return pos_idx.squeeze().tolist()
         else:
             # finding random positive class index
             pos_idx = np.dstack(pos_idx).squeeze()
             random_coord_idx = np.random.choice(pos_idx.shape[0]) # choosing random coords out of pos_idx
-            random_pos_coord = list(pos_idx[random_coord_idx])
+            random_pos_coord = pos_idx[random_coord_idx].tolist()
             return random_pos_coord
+
+    def shuffle_list(self, *ls):
+        """
+        Shuffles lists together in the same way so pairs stay as pairs
+        Args:
+            *ls: list arguments
+        Returns:
+            Corresponding shuffled lists
+        """
+        l = list(zip(*ls))
+        np.random.shuffle(l)
+        return zip(*l)
