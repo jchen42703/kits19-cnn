@@ -77,8 +77,8 @@ class Preprocessor(object):
             image = nib.load(join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
             label = nib.load(join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
             preprocessed_img, preprocessed_label = self.preprocess_2d(image, label, coords=False)
-            out = self.save_imgs(preprocessed_img, preprocessed_label, case)
-            print(out)
+            self.save_imgs(preprocessed_img, preprocessed_label, case)
+        print("Done!)
 
     def save_imgs(self, image, mask, case, pred=False):
         """
