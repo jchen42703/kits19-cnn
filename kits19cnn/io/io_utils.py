@@ -1,21 +1,24 @@
-from batchgenerators.transforms.spatial_transforms import MirrorTransform
-from batchgenerators.transforms.spatial_transforms import SpatialTransform, ResizeTransform
+from batchgenerators.transforms.spatial_transforms import MirrorTransform, SpatialTransform
+from batchgenerators.transforms.crop_and_pad_transforms import CenterCropTransform, RandomCropTransform
 from batchgenerators.transforms.utility_transforms import ConvertMultiSegToOnehotTransform
 from batchgenerators.transforms.sample_normalization_transforms import ZeroMeanUnitVarianceTransform
 from batchgenerators.transforms.abstract_transforms import Compose
 import numpy as np
 
-def get_transforms(patch_shape=(80, 192, 128), other_transforms=None, minimal=True, random_crop=False):
+def get_transforms(patch_shape=(192, 192), other_transforms=None, minimal=True, random_crop=True):
     """
     Initializes the transforms for training.
     Args:
         patch_shape:
         other_transforms: List of transforms that you would like to add (optional). Defaults to None.
         minimal (boolean): whether to include more in-depth data aug (random rotations, random elastic deformations,
-        random crops, random zoom, mirroring) or not; True if no daug, False if yes more daug
+        random zoom, mirroring) or not; True if no daug, False if yes more daug.
         random_crop (boolean): whether or not you want to random crop or center crop.
     """
-    resize =  ResizeTransform(patch_shape, concatenate_list=True)
+    if random_crop:
+        crop = RandomCropTransform(patch_shape)
+    else:
+        crop = CenterCropTransform(patch_shape)
     mean_std_norm = ZeroMeanUnitVarianceTransform()
     onehot = ConvertMultiSegToOnehotTransform([1, 2])
 
@@ -33,9 +36,9 @@ def get_transforms(patch_shape=(80, 192, 128), other_transforms=None, minimal=Tr
         axes = (0, 1, 2)
     mirror_transform = MirrorTransform(axes = axes)
     if minimal:
-        transforms_list = [resize, onehot, mean_std_norm]
+        transforms_list = [crop, onehot, mean_std_norm, mirror_transform]
     else:
-        transforms_list = [resize, onehot, mean_std_norm, spatial_transform, mirror_transform]
+        transforms_list = [crop, onehot, mean_std_norm, spatial_transform, mirror_transform]
     if other_transforms is not None:
         transforms_list = transforms_list + other_transforms
     composed = Compose(transforms_list)
