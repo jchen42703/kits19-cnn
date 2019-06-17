@@ -101,12 +101,12 @@ class Preprocessor(object):
             os.mkdir(out_case_dir)
             print("Created directory: {0}".format(out_images_dir))
         if pred:
-            save_name = "pred_{0}".format(case)
+            save_name = "pred_{0}.npy".format(case)
             np.save(os.path.join(out_case_dir, save_name), image)
             print("Saving prediction: {0}".format(save_name))
         else:
-            np.save(os.path.join(out_case_dir, "imaging"), image)
-            np.save(os.path.join(out_case_dir, "segmentation"), mask)
+            np.save(os.path.join(out_case_dir, "imaging.npy"), image)
+            np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
             print("Saving: {0}".format(case))
 
     def preprocess_2d(self, image, mask, coords=False):
