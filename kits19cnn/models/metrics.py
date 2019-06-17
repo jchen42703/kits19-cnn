@@ -16,9 +16,9 @@ def dice_plus_xent_loss(y_true, y_pred, smooth=1e-5, out_act='sigmoid'):
     """
     y_pred = tf.cast(y_pred, tf.float32)
     if out_act == "softmax":
-        loss_xent = K.categorical_crossentropy(y_true, y_pred)
+        l_xent = K.categorical_crossentropy(y_true, y_pred)
     elif out_act == "sigmoid":
-        loss_xent = K.mean(K.binary_crossentropy(y_true, y_pred), axis=1)
+        l_xent = K.mean(K.binary_crossentropy(y_true, y_pred), axis=1)
     # Dice as according to the paper:
     l_dice = soft_dice_loss(y_true, y_pred)
     return l_dice + l_xent
@@ -39,16 +39,16 @@ def soft_dice(y_true, y_pred, smooth=1., smooth_in_numerator=1., square_numerato
     Returns:
         result: the calculated soft dice
     """
-    axes = tuple(range(2, len(y_true.size()))) # assumes channels_first
+    axes = tuple(range(2, len(y_true.get_shape()))) # assumes channels_first
     if square_numerator:
-        intersect = K.sum(y_pred * y_true, axes, keepdim=False)
+        intersect = K.sum(y_pred * y_true, axes, keepdims=False)
     else:
-        intersect = K.sum((y_pred * y_true) ** 2, axes, keepdim=False)
+        intersect = K.sum((y_pred * y_true) ** 2, axes, keepdims=False)
     if square_denom:
-        denom = K.sum(y_pred ** 2 + y_true ** 2, axes, keepdim=False)
+        denom = K.sum(y_pred ** 2 + y_true ** 2, axes, keepdims=False)
     else:
-        denom = K.sum(y_pred + y_true, axes, keepdim=False)
-    result = K.mean(((2 * intersect + smooth_in_nom) / (denom + smooth)))
+        denom = K.sum(y_pred + y_true, axes, keepdims=False)
+    result = K.mean(((2 * intersect + smooth_in_numerator) / (denom + smooth)))
     return result
 
 def dice_hard(y_true, y_pred, threshold=0.5, axis=[1,2,3], smooth=1e-5):
