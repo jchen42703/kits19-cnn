@@ -33,12 +33,14 @@ class Preprocessor(object):
         self.out_dir = out_dir
 
         if clip_values is None:
+            # automatically getting high/low values to clip to
             self.clip_values = self.get_clip_values()
         else:
             self.clip_values = clip_values
 
         self.cases = cases
-        if cases is None:
+        # automatically collecting all of the case folder names
+        if self.cases is None:
             self.cases = [case for case in os.listdir(self.in_dir) \
                           if case.startswith("case")]
             assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
@@ -48,10 +50,16 @@ class Preprocessor(object):
             print("Created directory: {0}".format(out_dir))
 
     def get_clip_values(self):
+        """
+        Automatically gathers the low/high values to clip to
+        Returns:
+            clip_values (tuple): [0.5, 99.5] percentiles of the ROI pixels to clip to
+        """
         pixels = gather_roi_pixels()
-        # clipping to the [0.5, 99.5] percentiles
-        self.clip_values = (np.percentile(pixels, 0.5), np.percentile(pixels, 99.5))
+        # The [0.5, 99.5] percentiles to clip to
+        clip_values = (np.percentile(pixels, 0.5), np.percentile(pixels, 99.5))
         print("0.5 Percentile: {0}\n99.5 Percentile: {1}".format(percentiles[0], percentiles[1]))
+        return clip_values
 
     def gather_roi_pixels(self):
         """
@@ -99,9 +107,16 @@ class Preprocessor(object):
         # checking to make sure that the output directories exist
         if not isdir(out_case_dir):
             os.mkdir(out_case_dir)
-            print("Created directory: {0}".format(out_images_dir))
+            print("Created directory: {0}".format(out_case_dir))
         if pred:
-            save_name = "pred_{0}.npy".format(case)
+            try:
+                # linux filepath
+                case_save = case.split("/")[-2] # raw case name (no extra file)
+                assert case_save is not None
+            except AssertionError:
+                # windows filepath
+                case_save = case.split("\\")[-2] # raw case name (no extra file)
+            save_name = "pred_{0}.npy".format(case_save)
             np.save(os.path.join(out_case_dir, save_name), image)
             print("Saving prediction: {0}".format(save_name))
         else:
