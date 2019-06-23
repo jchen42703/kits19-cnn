@@ -1,5 +1,6 @@
 from glob import glob
 from kits19cnn.generators import SliceGenerator
+import random
 
 def split_ids(id_list, splits = [0.6, 0.2, 0.2]):
     """
@@ -10,6 +11,7 @@ def split_ids(id_list, splits = [0.6, 0.2, 0.2]):
     Returns:
         a dictionary of file ids for each set
     """
+    random.shuffle(id_list)
     total = len(id_list)
     train = round(total * splits[0])
     val_split = round(total * splits[1]) + train

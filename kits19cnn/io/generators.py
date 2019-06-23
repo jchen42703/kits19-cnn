@@ -165,6 +165,7 @@ class SliceGenerator(BaseTransformGenerator):
                 y_train = np.expand_dims(np.expand_dims(np.load(os.path.join(case_id, "segmentation.npy")), 0), 0)
             except IOError:
                 y_train = np.expand_dims(np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata(), 0), 0)
+
             pos_slice_dict[case_id] = self.get_pos_slice_idx(y_train, return_all=True)
         return pos_slice_dict
 

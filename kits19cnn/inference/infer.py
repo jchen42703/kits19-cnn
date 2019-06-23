@@ -1,6 +1,7 @@
 from kits19cnn.io.preprocess import Preprocessor
 import numpy as np
 import nibabel as nib
+from os.path import join
 from scipy.ndimage.filters import gaussian_filter
 from batchgenerators.augmentations.utils import pad_nd_image
 from kits19cnn.models.metrics import evaluate_official
@@ -10,7 +11,7 @@ class Predictor(Preprocessor):
     Prediction with Test-Time Data Augmentation & Post-Processing
     """
     def __init__(self, model, weights_path, in_dir, out_dir, clip_values=None, cases=None, do_mirroring=True,
-                 use_gaussian=False):
+                 use_gaussian=False, n_repeats=1, regions_class_order=None):
         """
         Attributes:
             model: channels_first
@@ -22,8 +23,8 @@ class Predictor(Preprocessor):
             cases: list of case folders to preprocess
             do_mirroring (boolean): whether or not you want to predict on all possible mirrored results
             use_gaussian (boolean): test-time gaussian noise
-        Others to maybe include:
-            num_repeats (int): Number of times to repeat the prediction process
+            n_repeats (int): Number of times to repeat the prediction process
+            regions_class_order (tuple or None): classes you want the corresponding predicted labels to contain
         """
         super().__init__(in_dir=in_dir, out_dir=out_dir, clip_values=clip_values, cases=cases)
         self.model = model
@@ -32,7 +33,8 @@ class Predictor(Preprocessor):
         self.use_gaussian = use_gaussian
         self.patch_size = model.inputs[0].shape.as_list()[-2:]
         self.n_classes = model.outputs[0].shape.as_list()[1]
-        self.num_repeats = num_repeats
+        self.n_repeats = n_repeats
+        self.regions_class_order = regions_class_order
 
     def predict(self, evaluate=True):
         """
@@ -48,55 +50,54 @@ class Predictor(Preprocessor):
             orig_shape = image.shape
             # preprocessing
             preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label, coords=True)
+            preprocessed_img = np.expand_dims(preprocessed_img, 0)
+            preprocessed_label = np.expand_dims(preprocessed_label, 0)
             self.save_imgs(preprocessed_img, preprocessed_label, case)
             # predicting + post-processing
-            pred, sigmoid_pred = self.predict_3D_2Dconv_tiled(preprocessed_img, regions_class_order=None)
+            pred, act_pred = self.predict_3D_2Dconv_tiled(preprocessed_img)
             pred = pad_nonint_extraction(pred, orig_shape, coords, pad_border_mode="constant")
             self.save_imgs(pred, mask=None, case=case, pred=True)
             if evaluate:
                 tk_dice, tu_dice = evaluate_official(label, pred)
-                print("Tumour and Kidney Dice: {1}; Tumour Dice: {2}".format(tk_dice, tu_dice))
+                print("Tumour and Kidney Dice: {0}; Tumour Dice: {1}".format(tk_dice, tu_dice))
                 tk_dices.append(tk_dice), tu_dices.append(tu_dice)
         if evaluate:
-            print("Average Tumour Kidney Dice: {0}\n \
-                   Average Tumour Dice: {1}".format(np.mean(tk_dices), np.mean(tu_dices)))
+            print("Average Tumour Kidney Dice: {0}\n".format(np.mean(tk_dices)) +
+                  "Average Tumour Dice: {0}".format(np.mean(tu_dices)))
 
     def predict_3D_2Dconv_tiled(self, data, BATCH_SIZE=None, mirror_axes=(0, 1),
-                                step=2, regions_class_order=None, pad_border_mode="edge", pad_kwargs=None):
+                                step=2, pad_border_mode="edge", pad_kwargs=None):
         """
         Args:
             data (numpy array): shape of (c, x, y, z)
             BATCH_SIZE (int): Batch size
             mirror_axes (list, tuple): for each spatial dimension (0,1)
             steps (int):
-            regions_class_order (list, tuple):
             pad_border_mode (str):
             pad_kwargs:
         """
         assert len(data.shape) == 4, "data must be c, x, y, z"
         predicted_segmentation = []
-        sigmoid_pred = []
+        act_pred = []
         for s in range(data.shape[1]):
-            pred_seg, sigmoid_pres = \
+            pred_seg, act_pres = \
                 self.predict_2D_2Dconv_tiled(data[:, s], BATCH_SIZE, step,
-                                                       mirror_axes, regions_class_order,
-                                                       pad_border_mode=pad_border_mode, pad_kwargs=pad_kwargs)
+                                             mirror_axes, pad_border_mode=pad_border_mode,
+                                             pad_kwargs=pad_kwargs)
             predicted_segmentation.append(pred_seg[None])
-            sigmoid_pred.append(sigmoid_pres[None])
+            act_pred.append(act_pres[None])
         predicted_segmentation = np.vstack(predicted_segmentation)
-        sigmoid_pred = np.vstack(sigmoid_pred).transpose((1, 0, 2, 3))
-        return predicted_segmentation, sigmoid_pred
+        act_pred = np.vstack(act_pred).transpose((1, 0, 2, 3))
+        return predicted_segmentation, act_pred
 
     def predict_2D_2Dconv_tiled(self, patient_data, BATCH_SIZE=None, step=2,
-                                mirror_axes=(0, 1), regions_class_order=None,
-                                pad_border_mode="edge", pad_kwargs=None):
+                                mirror_axes=(0, 1), pad_border_mode="edge", pad_kwargs=None):
         """
         Args:
             patient_data: shape of (c, x, y)
             BATCH_SIZE (int): Batch size
             mirror_axes (list, tuple): for each spatial dimension (0,1)
             steps (int):
-            regions_class_order (list, tuple):
             pad_border_mode (str):
             pad_kwargs:
         """
@@ -132,11 +133,11 @@ class Predictor(Preprocessor):
         # ub center coords
         center_coord_end = np.array([data_shape[i + 2] - self.patch_size[i] // 2 for i in range(len(self.patch_size))]).astype(int)
         # number of total steps to extract from based on the specified step size
-        num_steps = np.ceil([(center_coord_end[i] - center_coord_start[i]) / (self.patch_size[i] / step) for i in range(2)])
+        n_steps = np.ceil([(center_coord_end[i] - center_coord_start[i]) / (self.patch_size[i] / step) for i in range(2)])
         # how big each step based on the number steps and the coords
         # Why use the center coordinates? b/c better results? cleaner crop
-        step_size = np.array([(center_coord_end[i] - center_coord_start[i]) / (num_steps[i] + 1e-8) for i in range(2)])
-        step_size[step_size == 0] = 9999999 # what does this deal with? when num_steps = 0, so when the patch size is close to
+        step_size = np.array([(center_coord_end[i] - center_coord_start[i]) / (n_steps[i] + 1e-8) for i in range(2)])
+        step_size[step_size == 0] = 9999999 # what does this deal with? when n_steps = 0, so when the patch size is close to
                                             # the data shape
         # center patch coords to extract from
         xsteps = np.round(np.arange(center_coord_start[0], center_coord_end[0]+1e-8, step_size[0])).astype(int)
@@ -149,7 +150,7 @@ class Predictor(Preprocessor):
                 lb_y = y - self.patch_size[1] // 2
                 ub_y = y + self.patch_size[1] // 2
                 result[:, lb_x:ub_x, lb_y:ub_y] += \
-                    self.pred_per_2D(data[:, :, lb_x:ub_x, lb_y:ub_y], mirror_axes, add)
+                    self.pred_per_2D(data[:, :, lb_x:ub_x, lb_y:ub_y], mirror_axes, add).squeeze()
                 # important for averaging
                 result_numsamples[:, lb_x:ub_x, lb_y:ub_y] += add
         # Removing the padding that was added in the beginning by pad_nd_image
@@ -157,13 +158,16 @@ class Predictor(Preprocessor):
         result = result[slicer]
         result_numsamples = result_numsamples[slicer]
         # completing the averaging
-        sigmoid_pred = result / result_numsamples
+        act_pred = result / result_numsamples
 
-        predicted_segmentation_shp = sigmoid_pred[0].shape
-        predicted_segmentation = np.zeros(predicted_segmentation_shp, dtype=np.float32)
-        for i, c in enumerate(regions_class_order):
-            predicted_segmentation[sigmoid_pred[i] > 0.5] = c
-        return predicted_segmentation, sigmoid_pred
+        if self.regions_class_order is None:
+            predicted_segmentation = act_pred.argmax(0)
+        else:
+            predicted_segmentation_shp = act_pred[0].shape
+            predicted_segmentation = np.zeros(predicted_segmentation_shp, dtype=np.float32)
+            for i, c in enumerate(self.regions_class_order):
+                predicted_segmentation[act_pred[i] > 0.5] = c
+        return predicted_segmentation, act_pred
 
     def pred_per_2D(self, x, mirror_axes, mult=None):
         """
@@ -172,31 +176,31 @@ class Predictor(Preprocessor):
             mirror_axes (list, tuple): for each spatial dimension (0,1)
             mult (boolean): factor to multiply results by
         """
-        result = np.zeros([1, self.num_classes] + list(x.shape[2:]))
-        num_results = self.num_repeats
+        result = np.zeros([1, self.n_classes] + list(x.shape[2:]))
+        n_results = self.n_repeats
         if self.do_mirroring:
             mirror_idx = 4
-            num_results *= 2 ** len(mirror_axes)
+            n_results *= 2 ** len(mirror_axes)
         else:
             mirror_idx = 1
 
-        for i in range(self.num_repeats):
+        for i in range(self.n_repeats):
             for m in range(mirror_idx):
                 if m == 0:
                     pred = self.model.predict(x)
-                    result += 1/num_results * pred
+                    result += 1/n_results * pred
 
                 if m == 1 and (1 in mirror_axes):
                     pred = self.model.predict(np.flip(x, 3))
-                    result += 1/num_results * np.flip(pred, 3)
+                    result += 1/n_results * np.flip(pred, 3)
 
                 if m == 2 and (0 in mirror_axes):
                     pred = self.model.predict(np.flip(x, 2))
-                    result += 1/num_results * np.flip(pred, 2)
+                    result += 1/n_results * np.flip(pred, 2)
 
                 if m == 3 and (0 in mirror_axes) and (1 in mirror_axes):
                     pred = self.model.predict(np.flip(np.flip(x, 3), 2))
-                    result += 1/num_results * np.flip(np.flip(pred, 3), 2)
+                    result += 1/n_results * np.flip(np.flip(pred, 3), 2)
 
         if mult is not None:
             result[:, :] *= mult
@@ -207,13 +211,13 @@ def pad_nonint_extraction(image, orig_shape, coords, pad_border_mode="edge", pad
     """
     Pads the cropped output from the extract_nonint_region function
     Args:
-        image: either the mask or the thresholded (= 0.5) segmentation prediction (n_channels, x, y, z)
+        image: either the mask or the thresholded (= 0.5) segmentation prediction (x, y, z)
         orig_shape: Original shape of the 3D volume (no channels)
         coords: outputted coordinates from `extract_nonint_region`
     Returns:
         padded: numpy array of shape `orig_shape`
     """
     # trying to reverse the cropping with padding
-    padding = [[0,0]] + [[coords[i][0], orig_shape[i]-coords[i][1]] for i in range(len(orig_shape))]
+    padding = [[coords[i][0], orig_shape[i]-coords[i][1]] for i in range(len(orig_shape))]
     padded = np.pad(image, padding, mode=pad_border_mode, **pad_kwargs)
     return padded
