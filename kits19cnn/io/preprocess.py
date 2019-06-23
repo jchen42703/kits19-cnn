@@ -99,7 +99,7 @@ class Preprocessor(object):
         # checking to make sure that the output directories exist
         if not isdir(out_case_dir):
             os.mkdir(out_case_dir)
-            print("Created directory: {0}".format(out_images_dir))
+            print("Created directory: {0}".format(out_case_dir))
         if pred:
             save_name = "pred_{0}".format(case)
             np.save(os.path.join(out_case_dir, save_name), image)
