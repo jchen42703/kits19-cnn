@@ -139,7 +139,6 @@ class SliceGenerator(BaseTransformGenerator):
             except IOError:
                 x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii.gz")).get_fdata(), 0)
                 y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata(), 0)
-            x_train = np.clip(x_train, -200, 300)
             # extracting slice:
             if pos_sample:
                 if self.pos_slice_dict is None:
