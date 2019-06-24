@@ -85,7 +85,8 @@ class Preprocessor(object):
             preprocessed input image and mask
         """
         # Generating data and saving them recursively
-        for case in self.cases:
+        for (i, case) in enumerate(self.cases):
+            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
             image = nib.load(join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
             label = nib.load(join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
             preprocessed_img, preprocessed_label = self.preprocess_2d(image, label, coords=False)
