@@ -43,8 +43,8 @@ class Predictor(Preprocessor):
         # Generating data and saving them recursively
         tk_dices = []
         tu_dices = []
-        for case in self.cases:
-            print("Processing: {0}".format(case))
+        for (i, case) in enumerate(self.cases):
+            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
             image = nib.load(join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
             label = nib.load(join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
             orig_shape = image.shape
@@ -63,7 +63,7 @@ class Predictor(Preprocessor):
                 tk_dices.append(tk_dice), tu_dices.append(tu_dice)
         if evaluate:
             print("Average Tumour Kidney Dice: {0}\n".format(np.mean(tk_dices)) +
-                  "Average Tumour Dice: {0}".format(np.mean(tu_dices)))
+                  "Average Tumour Dice: {0}\n".format(np.mean(tu_dices)))
 
     def predict_3D_2Dconv_tiled(self, data, BATCH_SIZE=None, mirror_axes=(0, 1),
                                 step=2, pad_border_mode="edge", pad_kwargs=None):
