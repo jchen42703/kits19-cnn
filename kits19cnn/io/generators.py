@@ -3,46 +3,6 @@ import nibabel as nib
 import os
 from kits19cnn.io.gen_utils import BaseTransformGenerator
 
-class Slim3DGenerator(BaseTransformGenerator):
-    """
-    Depends on `batchgenerators.transforms` for the cropping and data augmentation.
-    * Supports channels_first
-    * .nii files should not have the batch_size dimension
-    Attributes:
-        fpaths: list of case folder names
-        batch_size: The number of images you want in a single batch
-        transform (Transform instance): If you want to use multiple Transforms, use the Compose Transform.
-        step_per_epoch:
-        shuffle: boolean
-    """
-    def __init__(self, fpaths, batch_size, transform=None, steps_per_epoch=1000, shuffle=True):
-
-        BaseTransformGenerator.__init__(self, fpaths=fpaths, batch_size=batch_size,
-                               transform=transform, steps_per_epoch=steps_per_epoch, shuffle=shuffle)
-
-    def data_gen(self, fpaths_temp):
-        """
-        Generates a batch of data.
-        Args:
-            fpaths_temp: batched list IDs; usually done by __getitem__
-            pos_sample: boolean on if you want to sample a positive image or not
-        Returns:
-            tuple of two lists of numpy arrays: x, y
-        """
-        images_x = []
-        images_y = []
-        for case_id in fpaths_temp:
-            # loads data as a numpy arr and then adds the channel + batch size dimensions
-            try:
-                x_train = np.expand_dims(np.load(os.path.join(case_id, "imaging.npy")), 0)
-                y_train = np.expand_dims(np.load(os.path.join(case_id, "segmentation.npy")), 0)
-            except:
-                x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii")).get_fdata(), 0)
-                y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii")).get_fdata(), 0)
-            x_train = np.clip(x_train, -200, 300)
-            images_x.append(x_train), images_y.append(y_train)
-        return (images_x, images_y)
-
 class SliceGenerator(BaseTransformGenerator):
     """
     Loads data, slices them based on the number of positive slice indices and applies data augmentation with `batchgenerators.transforms`.
