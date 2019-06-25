@@ -1,0 +1,17 @@
+*.pyc
+*.ipynb_checkpoints
+__pycache__/
+
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
