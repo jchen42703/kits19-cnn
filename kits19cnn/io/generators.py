@@ -102,7 +102,7 @@ class SliceGenerator(BaseTransformGenerator):
             # extracting slice:
             if pos_sample:
                 if self.pos_slice_dict is None:
-                    slice_idx = self.get_pos_slice_idx(np.expand_dims(y_train, 0))
+                    slice_idx = self.get_rand_pos_slice_idx(np.expand_dims(y_train, 0))
                 else:
                     slice_idx = np.random.choice(self.pos_slice_dict[case_id])
             elif not pos_sample:
@@ -125,8 +125,33 @@ class SliceGenerator(BaseTransformGenerator):
             except IOError:
                 y_train = np.expand_dims(np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata(), 0), 0)
 
-            pos_slice_dict[case_id] = self.get_pos_slice_idx(y_train, return_all=True)
+            pos_slice_dict[case_id] = self.get_all_per_label_pos_slice_idx(y_train)
         return pos_slice_dict
+
+    def get_all_per_label_pos_slice_idx(self, label):
+        """
+        Gets a random positive slice index. Assumes the background class is 0.
+        Args:
+            label: numpy array with the dims (batch, n_channels, x,y,z)
+        Returns:
+            a list of all non-background class integer slice indices
+        """
+        pos_idx = np.nonzero(label)[2]
+        return pos_idx.squeeze().tolist()
+
+    def get_rand_pos_slice_idx(self, label):
+        """
+        Gets a random positive slice index. Assumes the background class is 0.
+        Args:
+            label: numpy array with the dims (batch, n_channels, x,y,z)
+        Returns:
+            an integer representing a random non-background class slice index
+        """
+        # "n_dims" numpy arrays of all possible positive pixel indices for the label
+        slice_indices = np.nonzero(label)[2]
+        # finding random positive class index
+        random_pos_coord = np.random.choice(slice_indices)
+        return random_pos_coord
 
     def get_rand_slice_idx(self, shape):
         """
@@ -136,26 +161,6 @@ class SliceGenerator(BaseTransformGenerator):
             A randomly selected slice index
         """
         return np.random.randint(0, shape[2]-1)
-
-    def get_pos_slice_idx(self, label, return_all=False):
-        """
-        Gets a random positive patch index that does not include the channels and batch_size dimensions.
-        Args:
-            label: one-hot encoded numpy array with the dims (batch, n_channels, x,y,z)
-            return_all (boolean): whether or not to return the entirety of the array
-        Returns:
-            a list representing a 3D random positive patch index (same number of dimensions as label)
-        """
-        # "n_dims" numpy arrays of all possible positive pixel indices for the label
-        pos_idx = np.nonzero(label)[2]
-        if return_all:
-            return pos_idx.squeeze().tolist()
-        else:
-            # finding random positive class index
-            pos_idx = np.dstack(pos_idx).squeeze()
-            random_coord_idx = np.random.choice(pos_idx.shape[0]) # choosing random coords out of pos_idx
-            random_pos_coord = pos_idx[random_coord_idx].tolist()
-            return random_pos_coord
 
     def shuffle_list(self, *ls):
         """
