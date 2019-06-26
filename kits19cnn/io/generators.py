@@ -92,13 +92,13 @@ class SliceGenerator(BaseTransformGenerator):
         images_x = []
         images_y = []
         for case_id in fpaths_temp:
-            # loads data as a numpy arr and then adds the channel + batch size dimensions
+            # loads data as a numpy arr and then adds the channels dimension (channels_first)
             try:
-                x_train = np.expand_dims(np.load(os.path.join(case_id, "imaging.npy")), 0)
-                y_train = np.expand_dims(np.load(os.path.join(case_id, "segmentation.npy")), 0)
+                x_train = np.load(os.path.join(case_id, "imaging.npy"))[None]
+                y_train = np.load(os.path.join(case_id, "segmentation.npy"))[None]
             except IOError:
-                x_train = np.expand_dims(nib.load(os.path.join(case_id, "imaging.nii.gz")).get_fdata(), 0)
-                y_train = np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata(), 0)
+                x_train = nib.load(os.path.join(case_id, "imaging.nii.gz")).get_fdata()[None]
+                y_train = nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata()[None]
             # extracting slice:
             if pos_sample:
                 if self.pos_slice_dict is None:
@@ -120,10 +120,15 @@ class SliceGenerator(BaseTransformGenerator):
         for (idx, case_id) in enumerate(self.fpaths):
             total = len(self.fpaths)
             print("Progress: {0}/{1}\nProcessing: {2}".format(idx+1, total, case_id))
+            # loading the data iteratively;  [None][None] just adds on the
+            # batch_size (1), and the n_channels (1) to make the shape
+            # (1, 1, x, y, z); same as np.expand_dims(arr, 0) twice
             try:
-                y_train = np.expand_dims(np.expand_dims(np.load(os.path.join(case_id, "segmentation.npy")), 0), 0)
+                # support for .npy
+                y_train = np.load(os.path.join(case_id, "segmentation.npy"))[None][None]
             except IOError:
-                y_train = np.expand_dims(np.expand_dims(nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata(), 0), 0)
+                # support for .nii.gz
+                y_train = nib.load(os.path.join(case_id, "segmentation.nii.gz")).get_fdata()[None][None]
 
             pos_slice_dict[case_id] = self.get_all_per_label_pos_slice_idx(y_train)
         return pos_slice_dict
