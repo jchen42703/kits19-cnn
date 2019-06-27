@@ -16,15 +16,18 @@ class SliceGenerator(BaseTransformGenerator):
             (None): if you want to automatically get the dictionary of positive class slice indices
             (dict): if you want to manually provide it
             (anything else): if you want to find the slices on the fly
+        label_probs (list, tuple): sequence of probabilities for each nonzero label. Default is None,
+            which means classes are sampled uniformly.
         transform (Transform instance): If you want to use multiple Transforms, use the Compose Transform.
         step_per_epoch:
         shuffle: boolean
     """
-    def __init__(self, fpaths, batch_size=2, n_pos=1, pos_slice_dict=None, transform=None,
-                 steps_per_epoch=None, shuffle=True):
+    def __init__(self, fpaths, batch_size=2, n_pos=1, pos_slice_dict=None, label_probs=None,
+                 transform=None, steps_per_epoch=None, shuffle=True):
 
         BaseTransformGenerator.__init__(self, fpaths=fpaths, batch_size=batch_size, transform=transform,
                                         steps_per_epoch=steps_per_epoch, shuffle=shuffle)
+        self.label_probs = label_probs
         # handling different cases with positive class slicing;
         # getting it automatically, manually provided, or on the fly
         if pos_slice_dict is None:
@@ -102,10 +105,18 @@ class SliceGenerator(BaseTransformGenerator):
             # extracting slice:
             if pos_sample:
                 if self.pos_slice_dict is None:
-                    slice_idx = self.get_rand_pos_slice_idx(np.expand_dims(y_train, 0))
+                    # did y_train[None] to add the batch size dimension
+                    slice_idx = self.get_random_pos_slice_idx(y_train[None])
                 else:
-                    slice_idx = np.random.choice(self.pos_slice_dict[case_id])
+                    # sampling a positive class slice index from the nested class idx dictionary
+                    # based on the provided label_probs. if label_probs=None, the distrib is uniform.
+                    idx_dict = self.pos_slice_dict[case_id]
+                    # sampling the class
+                    sample_class = np.random.choice(list(idx_dict.keys()), p=self.label_probs)
+                    # getting a random slice index from the same sampled class
+                    slice_idx = np.random.choice(idx_dict[sample_class])
             elif not pos_sample:
+                # added batch size dimenion
                 slice_idx = self.get_rand_slice_idx((1,)+x_train.shape)
             images_x.append(x_train[:, slice_idx]), images_y.append(y_train[:, slice_idx])
         return (images_x, images_y)
@@ -113,8 +124,8 @@ class SliceGenerator(BaseTransformGenerator):
     def get_all_pos_slice_idx(self):
         """
         Done in the generator initialization if specified. Iterates through all labels and generates
-        a dictionary of {fname: pos_idx} pairs, where pos_idx is a tuple of all positive class indices
-        of said case's label.
+        a dictionary of nested dictionaries {fname: {1: pos_idx1, 2: pos_idx2} pairs, where pos_idx
+        is a tuple of all slice indices for each of the said case's labels.
         """
         pos_slice_dict = {}
         for (idx, case_id) in enumerate(self.fpaths):
@@ -135,14 +146,19 @@ class SliceGenerator(BaseTransformGenerator):
 
     def get_all_per_label_pos_slice_idx(self, label):
         """
-        Gets a random positive slice index. Assumes the background class is 0.
+        Gets a all positive class slice indices for each class in the provided label
+        (each index does not include the channels and batch_size dimensions.)
         Args:
             label: numpy array with the dims (batch, n_channels, x,y,z)
         Returns:
-            a list of all non-background class integer slice indices
+            dictionary with key, value pairs (class label (int), slice indices (list of int))
         """
-        pos_idx = np.nonzero(label)[2]
-        return pos_idx.squeeze().tolist()
+        label_indices = np.unique(label)[1:] # excluding outside class
+        n_labels = label_indices.size
+        # dictionary nested under the eventually case_id with classes
+        nested_class_dict = {class_label: np.where(label == class_label)[2].tolist() \
+                             for class_label in label_indices}
+        return nested_class_dict
 
     def get_rand_pos_slice_idx(self, label):
         """
