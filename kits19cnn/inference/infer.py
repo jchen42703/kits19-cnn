@@ -10,8 +10,8 @@ class Predictor(Preprocessor):
     """
     Prediction with Test-Time Data Augmentation & Post-Processing
     """
-    def __init__(self, model, weights_path, in_dir, out_dir, clip_values=None, cases=None, do_mirroring=True,
-                 use_gaussian=False, n_repeats=1, regions_class_order=None):
+    def __init__(self, model, weights_path, in_dir, out_dir, from_logits=True, clip_values=None, cases=None,
+                 do_mirroring=True, use_gaussian=False, n_repeats=1, regions_class_order=None):
         """
         Attributes:
             model: channels_first
@@ -28,7 +28,10 @@ class Predictor(Preprocessor):
         """
         super().__init__(in_dir=in_dir, out_dir=out_dir, clip_values=clip_values, cases=cases)
         self.model = model
-        self.model.load_weights(weights_path)
+        if from_logits:
+            self.load_model_from_logits_softmax(weights_path)
+        elif not from_logits:
+            self.model.load_weights(weights_path)
         self.do_mirroring = do_mirroring
         self.use_gaussian = use_gaussian
         self.patch_size = model.inputs[0].shape.as_list()[-2:]
@@ -206,6 +209,26 @@ class Predictor(Preprocessor):
             result[:, :] *= mult
 
         return result
+
+    def load_model_from_logits_softmax(self, weights_path):
+        """
+        Loads model weights and tacks on an extra softmax layer; used when model returns
+        logits instead of output probabilities.
+        Args:
+            weights_path: path to the weights
+        Returns:
+            None
+            Just sets self.model to the new model
+        """
+        from tensorflow.keras.models import Model
+        from tensorflow.keras.layers import Softmax
+        import tensorflow.keras.backend as K
+        K.set_image_data_format("channels_first")
+        self.model.load_weights(weights_path)
+        inp = self.model.input
+        logits = self.model.output
+        act = Softmax(axis=1)(logits)
+        self.model = Model(inputs=[inp], outputs=[act])
 
 def pad_nonint_extraction(image, orig_shape, coords, pad_border_mode="edge", pad_kwargs={}):
     """
