@@ -108,18 +108,31 @@ class SliceGenerator(BaseTransformGenerator):
                     # did y_train[None] to add the batch size dimension
                     slice_idx = self.get_random_pos_slice_idx(y_train[None])
                 else:
-                    # sampling a positive class slice index from the nested class idx dictionary
-                    # based on the provided label_probs. if label_probs=None, the distrib is uniform.
-                    idx_dict = self.pos_slice_dict[case_id]
-                    # sampling the class
-                    sample_class = np.random.choice(list(idx_dict.keys()), p=self.label_probs)
-                    # getting a random slice index from the same sampled class
-                    slice_idx = np.random.choice(idx_dict[sample_class])
+                    slice_idx = self.sample_pos_idx_from_dict(case_id)
             elif not pos_sample:
                 # added batch size dimenion
                 slice_idx = self.get_rand_slice_idx((1,)+x_train.shape)
             images_x.append(x_train[:, slice_idx]), images_y.append(y_train[:, slice_idx])
         return (images_x, images_y)
+
+    def sample_pos_idx_from_dict(self, case_id):
+        """
+        Sampling a positive class slice index from the nested class label dictionary
+        based on the user-defined label_probs attribute.
+        Args:
+            case_id (str): key of self.pos_slice_dict
+        Returns
+            slice_idx: the sampled scalar slice index
+        """
+        # sampling a positive class slice index from the nested class idx dictionary
+        # based on the provided label_probs. if label_probs=None, the distrib is uniform.
+        idx_dict = self.pos_slice_dict[case_id]
+        # sampling the class
+        class_labels = sorted(list(idx_dict.keys()))
+        sample_class = np.random.choice(class_labels, p=self.label_probs)
+        # getting a random slice index from the same sampled class
+        slice_idx = np.random.choice(idx_dict[sample_class])
+        return slice_idx
 
     def get_all_pos_slice_idx(self):
         """
