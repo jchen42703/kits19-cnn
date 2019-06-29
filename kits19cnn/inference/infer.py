@@ -53,9 +53,9 @@ class Predictor(Preprocessor):
             orig_shape = image.shape
             # preprocessing
             preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label, coords=True)
+            self.save_imgs(preprocessed_img, preprocessed_label, case)
             preprocessed_img = np.expand_dims(preprocessed_img, 0)
             preprocessed_label = np.expand_dims(preprocessed_label, 0)
-            self.save_imgs(preprocessed_img, preprocessed_label, case)
             # predicting + post-processing
             pred, act_pred = self.predict_3D_2Dconv_tiled(preprocessed_img)
             pred = pad_nonint_extraction(pred, orig_shape, coords, pad_border_mode="constant")
