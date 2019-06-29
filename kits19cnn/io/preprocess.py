@@ -55,7 +55,7 @@ class Preprocessor(object):
         Returns:
             clip_values (tuple): [0.5, 99.5] percentiles of the ROI pixels to clip to
         """
-        pixels = gather_roi_pixels()
+        pixels = self.gather_roi_pixels()
         # The [0.5, 99.5] percentiles to clip to
         clip_values = (np.percentile(pixels, 0.5), np.percentile(pixels, 99.5))
         print("0.5 Percentile: {0}\n99.5 Percentile: {1}".format(percentiles[0], percentiles[1]))
