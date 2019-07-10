@@ -1,10 +1,18 @@
-#Resnet
+#Res+Unet
+#Github source: https://github.com/Kaido0/Brain-Tissue-Segment-Keras
+#Paper : https://arxiv.org/pdf/1711.10684.pdf
 
 from tensorflow.keras.layers import Add, Concatenate, MaxPooling2D, MaxPooling3D, \
                                     UpSampling2D, UpSampling3D, LeakyReLU, \
                                     Conv2D, Conv3D, BatchNormalization
 
 def residual_block2D(input_layer,n_filters,strides):
+    """
+    Args:
+        input_layer :
+        n_filters :
+
+    """
     res_path = BatchNormalization(input_layer)
     res_path = LeakyReLU(0.3)(res_path)
     res_path = Conv2D(filters=n_filters[0], kernel_size=(3, 3), padding='same', strides=strides[0])(res_path)
