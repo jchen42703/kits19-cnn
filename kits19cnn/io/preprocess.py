@@ -1,7 +1,8 @@
 import os
 import nibabel as nib
-from os.path import join, isdir
 import numpy as np
+import pandas as pd
+from os.path import join, isdir
 
 class Preprocessor(object):
     """
@@ -16,6 +17,7 @@ class Preprocessor(object):
         * save as .npy array
             * imaging.npy
             * segmentation.npy
+        * saves the crop coordinates in out_dir as "coords.csv"
     3D Preprocessing:
         2D Preprocessing but resample to median spacing beforehand
         Need to figure out how to uninterpolate
@@ -49,33 +51,6 @@ class Preprocessor(object):
             os.mkdir(out_dir)
             print("Created directory: {0}".format(out_dir))
 
-    def get_clip_values(self):
-        """
-        Automatically gathers the low/high values to clip to
-        Returns:
-            clip_values (tuple): [0.5, 99.5] percentiles of the ROI pixels to clip to
-        """
-        pixels = self.gather_roi_pixels()
-        # The [0.5, 99.5] percentiles to clip to
-        clip_values = (np.percentile(pixels, 0.5), np.percentile(pixels, 99.5))
-        print("0.5 Percentile: {0}\n99.5 Percentile: {1}".format(percentiles[0], percentiles[1]))
-        return clip_values
-
-    def gather_roi_pixels(self):
-        """
-        Collects all of the segmentation ROI pixels in a numpy array.
-        Returns:
-            pixels (numpy array):
-        """
-        pixels = np.array([])
-        for (i, case) in enumerate(self.cases):
-            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            x = nib.load(os.path.join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
-            y = nib.load(os.path.join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
-            overlap = x * y
-            pixels = np.append(pixels, overlap[overlap != 0].flatten())
-        return pixels
-
     def gen_data(self):
         """
         Generates and saves preprocessed data
@@ -84,14 +59,37 @@ class Preprocessor(object):
         Returns:
             preprocessed input image and mask
         """
+        coords_dict = {"cases": [],
+                      "z_lb": [], "z_ub": [],
+                      "x_lb": [], "x_ub": [],
+                      "y_lb": [], "y_ub": []}
         # Generating data and saving them recursively
         for (i, case) in enumerate(self.cases):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
             image = nib.load(join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
             label = nib.load(join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
-            preprocessed_img, preprocessed_label = self.preprocess_2d(image, label, coords=False)
+            preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label)
             self.save_imgs(preprocessed_img, preprocessed_label, case)
+            coords_dict = self.append_to_coords_dict(coords_dict, case, coords)
+        df = pd.DataFrame(coords_dict)
+        df.to_csv(join(self.out_dir, "coords.csv"))
         print("Done!")
+
+    def preprocess_2d(self, image, mask):
+        """
+        Procedure:
+        1) Clipping to specified values. Defaults to [0.5, 99.5 percentiles].
+        2) Cropping out non-0.5-percentile region
+
+        Args:
+            image: numpy array
+            mask: numpy array
+        Returns:
+            tuple(preprocessed (image, label), list of lists of coords)
+        """
+        clipped = np.clip(image, self.clip_values[0], self.clip_values[1])
+        cropped_and_coords = extract_nonint_region(clipped, mask, outside_value=self.clip_values[0])
+        return cropped_and_coords
 
     def save_imgs(self, image, mask, case, pred=False):
         """
@@ -125,31 +123,61 @@ class Preprocessor(object):
             np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
             print("Saving: {0}".format(case))
 
-    def preprocess_2d(self, image, mask, coords=False):
+    def append_to_coords_dict(self, coords_dict, case, coords):
         """
-        Procedure:
-        1) Clipping to specified values. Defaults to [0.5, 99.5 percentiles].
-        2) Cropping out non-0.5-percentile region
-
+        Simple function to append the coords and cases to the coords_dict.
         Args:
-            image: numpy array
-            mask: numpy array
-            coords
+            coords_dict: dictionary containing all of the coordinates
+            case (str): case folder name
+            coords: list of [lower bound, upper bound]
         Returns:
-            preprocessed (image, label) tuple
+            new coords_dict with the append coordinates
         """
-        clipped = np.clip(image, self.clip_values[0], self.clip_values[1])
-        cropped = extract_nonint_region(clipped, mask, outside_value=self.clip_values[0], coords=coords)
-        return cropped
+        # unpacking coords (list of lists of [lower bound, upper bound])
+        # lb = lower bound, ub = upper bound
+        z_lb, z_ub = coords[0]
+        x_lb, x_ub = coords[1]
+        y_lb, y_ub = coords[2]
+        coords_dict["cases"].append(case)
+        coords_dict["z_lb"].append(z_lb), coords_dict["z_ub"].append(z_ub)
+        coords_dict["x_lb"].append(x_lb), coords_dict["x_ub"].append(x_ub)
+        coords_dict["y_lb"].append(y_lb), coords_dict["y_ub"].append(y_ub)
+        return coords_dict
 
-def extract_nonint_region(image, mask=None, outside_value=0, coords=False):
+    def get_clip_values(self):
+        """
+        Automatically gathers the low/high values to clip to
+        Returns:
+            clip_values (tuple): [0.5, 99.5] percentiles of the ROI pixels to clip to
+        """
+        pixels = self.gather_roi_pixels()
+        # The [0.5, 99.5] percentiles to clip to
+        clip_values = (np.percentile(pixels, 0.5), np.percentile(pixels, 99.5))
+        print("0.5 Percentile: {0}\n99.5 Percentile: {1}".format(percentiles[0], percentiles[1]))
+        return clip_values
+
+    def gather_roi_pixels(self):
+        """
+        Collects all of the segmentation ROI pixels in a numpy array.
+        Returns:
+            pixels (numpy array):
+        """
+        pixels = np.array([])
+        for (i, case) in enumerate(self.cases):
+            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
+            x = nib.load(os.path.join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
+            y = nib.load(os.path.join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
+            overlap = x * y
+            pixels = np.append(pixels, overlap[overlap != 0].flatten())
+        return pixels
+
+def extract_nonint_region(image, mask=None, outside_value=0):
     """
     Resizing image around a specified region (i.e. nonzero region)
     Args:
         image: shape (x, y, z)
         mask: a segmentation labeled mask that is the same shaped as 'image' (optional; default: None)
         outside_value: (optional; default: 0)
-        coords: boolean on whether or not to return boundaries (bounding box coords) (optional; default: False)
     Returns:
         the resized image
         segmentation mask (when mask is not None)
@@ -180,14 +208,7 @@ def extract_nonint_region(image, mask=None, outside_value=0, coords=False):
     resizer = (slice(minZidx, maxZidx), slice(minXidx, maxXidx), slice(minYidx, maxYidx))
     coord_list = [[minZidx, maxZidx], [minXidx, maxXidx], [minYidx, maxYidx]]
     # returns cropped outputs with the bbox coordinates
-    if coords:
-        if mask is not None:
-            return (image[resizer], mask[resizer], coord_list)
-        elif mask is None:
-            return (image[resizer], coord_list)
-    # returns just cropped outputs
-    elif not coords:
-        if mask is not None:
-            return (image[resizer], mask[resizer])
-        elif mask is None:
-            return (image[resizer])
+    if mask is not None:
+        return (image[resizer], mask[resizer], coord_list)
+    elif mask is None:
+        return (image[resizer], coord_list)
