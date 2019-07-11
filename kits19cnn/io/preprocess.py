@@ -2,6 +2,7 @@ import os
 import nibabel as nib
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from os.path import join, isdir
 
 class Preprocessor(object):
@@ -43,7 +44,8 @@ class Preprocessor(object):
         self.cases = cases
         # automatically collecting all of the case folder names
         if self.cases is None:
-            self.cases = [case for case in os.listdir(self.in_dir) \
+            self.cases = [os.path.join(self.in_dir, case) \
+                          for case in os.listdir(self.in_dir) \
                           if case.startswith("case")]
             assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
         # making directory if out_dir doesn't exist
@@ -68,8 +70,8 @@ class Preprocessor(object):
         # Generating data and saving them recursively
         for (i, case) in enumerate(self.cases):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            image = nib.load(join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
-            label = nib.load(join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
+            image = nib.load(join(case, "imaging.nii.gz")).get_fdata()
+            label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
             preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label)
             orig_shape = image.shape # need this for inference
             self.save_imgs(preprocessed_img, preprocessed_label, case)
@@ -100,25 +102,20 @@ class Preprocessor(object):
         Args:
             image: numpy array
             mask: numpy array
-            case: case folder name (each element of self.cases)
+            case: path to a case folder (each element of self.cases)
             pred (boolean): whether or not saving a prediction or preprocessed image
         """
         # saving the generated dataset
         # output dir in KiTS19 format
+        # extracting the raw case folder name
+        case = Path(case).name
         out_case_dir = join(self.out_dir, case)
         # checking to make sure that the output directories exist
         if not isdir(out_case_dir):
             os.mkdir(out_case_dir)
             print("Created directory: {0}".format(out_case_dir))
         if pred:
-            try:
-                # linux filepath
-                case_save = case.split("/")[-2] # raw case name (no extra file)
-                assert case_save is not None
-            except AssertionError:
-                # windows filepath
-                case_save = case.split("\\")[-2] # raw case name (no extra file)
-            save_name = "pred_{0}.npy".format(case_save)
+            save_name = "pred_{0}.npy".format(case)
             np.save(os.path.join(out_case_dir, save_name), image)
             print("Saving prediction: {0}".format(save_name))
         else:
@@ -136,6 +133,8 @@ class Preprocessor(object):
         Returns:
             new coords_dict with the append coordinates
         """
+        # case comes in as a filepath, so let's just get the case id
+        case = Path(case).name
         # unpacking coords (list of lists of [lower bound, upper bound])
         # lb = lower bound, ub = upper bound
         z_lb, z_ub = coords[0]
