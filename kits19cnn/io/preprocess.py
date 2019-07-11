@@ -62,15 +62,18 @@ class Preprocessor(object):
         coords_dict = {"cases": [],
                       "z_lb": [], "z_ub": [],
                       "x_lb": [], "x_ub": [],
-                      "y_lb": [], "y_ub": []}
+                      "y_lb": [], "y_ub": [],
+                      "orig_z": [], "orig_x": [], "orig_y": [],
+                      }
         # Generating data and saving them recursively
         for (i, case) in enumerate(self.cases):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
             image = nib.load(join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
             label = nib.load(join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
             preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label)
+            orig_shape = image.shape # need this for inference
             self.save_imgs(preprocessed_img, preprocessed_label, case)
-            coords_dict = self.append_to_coords_dict(coords_dict, case, coords)
+            coords_dict = self.append_to_coords_dict(coords_dict, case, coords, orig_shape)
         df = pd.DataFrame(coords_dict)
         df.to_csv(join(self.out_dir, "coords.csv"))
         print("Done!")
@@ -123,7 +126,7 @@ class Preprocessor(object):
             np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
             print("Saving: {0}".format(case))
 
-    def append_to_coords_dict(self, coords_dict, case, coords):
+    def append_to_coords_dict(self, coords_dict, case, coords, orig_shape):
         """
         Simple function to append the coords and cases to the coords_dict.
         Args:
@@ -138,10 +141,13 @@ class Preprocessor(object):
         z_lb, z_ub = coords[0]
         x_lb, x_ub = coords[1]
         y_lb, y_ub = coords[2]
+        orig_z, orig_x, orig_y = orig_shape
         coords_dict["cases"].append(case)
         coords_dict["z_lb"].append(z_lb), coords_dict["z_ub"].append(z_ub)
         coords_dict["x_lb"].append(x_lb), coords_dict["x_ub"].append(x_ub)
         coords_dict["y_lb"].append(y_lb), coords_dict["y_ub"].append(y_ub)
+        coords_dict["orig_z"].append(orig_z), coords_dict["orig_x"].append(orig_x), coords_dict["orig_y"].append(orig_y)
+
         return coords_dict
 
     def get_clip_values(self):
