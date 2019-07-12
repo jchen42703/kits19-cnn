@@ -96,14 +96,13 @@ class Preprocessor(object):
         cropped_and_coords = extract_nonint_region(clipped, mask, outside_value=self.clip_values[0])
         return cropped_and_coords
 
-    def save_imgs(self, image, mask, case, pred=False):
+    def save_imgs(self, image, mask, case):
         """
-        Saves an image and mask pair as .npy arrays in the MSD file structure
+        Saves an image and mask pair as .npy arrays in the KiTS19 file structure
         Args:
             image: numpy array
             mask: numpy array
             case: path to a case folder (each element of self.cases)
-            pred (boolean): whether or not saving a prediction or preprocessed image
         """
         # saving the generated dataset
         # output dir in KiTS19 format
@@ -114,14 +113,10 @@ class Preprocessor(object):
         if not isdir(out_case_dir):
             os.mkdir(out_case_dir)
             print("Created directory: {0}".format(out_case_dir))
-        if pred:
-            save_name = "pred_{0}.npy".format(case)
-            np.save(os.path.join(out_case_dir, save_name), image)
-            print("Saving prediction: {0}".format(save_name))
-        else:
-            np.save(os.path.join(out_case_dir, "imaging.npy"), image)
-            np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
-            print("Saving: {0}".format(case))
+
+        np.save(os.path.join(out_case_dir, "imaging.npy"), image)
+        np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
+        print("Saving: {0}".format(case))
 
     def append_to_coords_dict(self, coords_dict, case, coords, orig_shape):
         """

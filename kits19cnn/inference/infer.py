@@ -79,7 +79,7 @@ class Predictor(Preprocessor):
             # predicting + post-processing
             pred, act_pred = self.predict_3D_2Dconv_tiled(preprocessed_img)
             pred = pad_nonint_extraction(pred, orig_shape, coords, pad_border_mode="constant")
-            self.save_imgs(pred, mask=None, case=case, pred=True)
+            self.save_predictions(pred, act_pred, case=case)
             if evaluate:
                 label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
                 tk_dice, tu_dice = evaluate_official(label, pred)
@@ -268,6 +268,30 @@ class Predictor(Preprocessor):
         orig_shape = tuple([int(self.coords_csv.loc[case, col]) for col in shape_cols])
         return coords_list, orig_shape
 
+    def save_predictions(self, pred, pred_act, case):
+        """
+        Saves a prediction as a .npy array in the KiTS19 file structure
+        Args:
+            pred: numpy array
+            pred_act: The raw outputted probability map from your NN
+            case: path to a case folder (each element of self.cases)
+        Returns:
+            None
+        """
+        # extracting the raw case folder name
+        case = Path(case).name
+        out_case_dir = join(self.out_dir, case)
+        # checking to make sure that the output directories exist
+        if not isdir(out_case_dir):
+            os.mkdir(out_case_dir)
+            print("Created directory: {0}".format(out_case_dir))
+
+        save_name = "pred_{0}.npy".format(case)
+        save_name_act = "pred_{0}_act.npy".format(case)
+        np.save(os.path.join(out_case_dir, save_name), pred)
+        np.save(os.path.join(out_case_dir, save_name_act), pred_act)
+        print("Saving predictions: {0}, {1}".format(save_name, save_name_act))
+
 def pad_nonint_extraction(image, orig_shape, coords, pad_border_mode="edge", pad_kwargs={}):
     """
     Pads the cropped output from the extract_nonint_region function
@@ -278,7 +302,7 @@ def pad_nonint_extraction(image, orig_shape, coords, pad_border_mode="edge", pad
     Returns:
         padded: numpy array of shape `orig_shape`
     """
-    # trying to reverse the cropping with padding
+    # reversing the cropping with padding
     padding = [[coords[i][0], orig_shape[i]-coords[i][1]] for i in range(len(orig_shape))]
     padded = np.pad(image, padding, mode=pad_border_mode, **pad_kwargs)
     return padded
