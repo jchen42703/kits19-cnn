@@ -3,7 +3,7 @@ import numpy as np
 import nibabel as nib
 import pandas as pd
 from pathlib import Path
-from os.path import join
+from os.path import join, isdir
 from scipy.ndimage.filters import gaussian_filter
 from batchgenerators.augmentations.utils import pad_nd_image
 from kits19cnn.models.metrics import evaluate_official
