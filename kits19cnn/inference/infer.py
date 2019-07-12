@@ -1,7 +1,9 @@
-from kits19cnn.io.preprocess import Preprocessor
 import numpy as np
 import nibabel as nib
 import pandas as pd
+import os
+
+from kits19cnn.io.preprocess import Preprocessor
 from pathlib import Path
 from os.path import join, isdir
 from scipy.ndimage.filters import gaussian_filter
@@ -288,8 +290,8 @@ class Predictor(Preprocessor):
 
         save_name = "pred_{0}.npy".format(case)
         save_name_act = "pred_{0}_act.npy".format(case)
-        np.save(os.path.join(out_case_dir, save_name), pred)
-        np.save(os.path.join(out_case_dir, save_name_act), pred_act)
+        np.save(join(out_case_dir, save_name), pred)
+        np.save(join(out_case_dir, save_name_act), pred_act)
         print("Saving predictions: {0}, {1}".format(save_name, save_name_act))
 
 def pad_nonint_extraction(image, orig_shape, coords, pad_border_mode="edge", pad_kwargs={}):
