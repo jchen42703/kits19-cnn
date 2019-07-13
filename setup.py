@@ -16,6 +16,8 @@ setup(name='kits19cnn',
             "keras",
             "tensorflow",
             "nibabel",
+            "pandas",
+            "sklearn",
       ],
       classifiers=[
           'Development Status :: 3 - Alpha',
