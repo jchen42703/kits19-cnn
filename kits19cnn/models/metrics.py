@@ -22,7 +22,7 @@ def dice_plus_xent_loss(out_act="sigmoid", n_classes=3):
             l_dice = soft_dice_loss(y_true, y_pred)
         elif out_act == "sigmoid":
             # Adjusted for multi-label cases (labels must be one-hot encoded)
-            l_xent = K.mean(K.binary_crossentropy(y_true, y_pred, axis=1))
+            l_xent = K.mean(K.binary_crossentropy(y_true, y_pred))
             l_dice = soft_dice_loss(y_true, y_pred)
         elif out_act is None:
             # Adjusted for mutually exlusive classes and sparse labels cases
