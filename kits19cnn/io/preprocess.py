@@ -2,6 +2,7 @@ import os
 import nibabel as nib
 import numpy as np
 import pandas as pd
+import json
 from pathlib import Path
 from os.path import join, isdir
 
@@ -23,7 +24,7 @@ class Preprocessor(object):
         2D Preprocessing but resample to median spacing beforehand
         Need to figure out how to uninterpolate
     """
-    def __init__(self, in_dir, out_dir, clip_values=None, cases=None):
+    def __init__(self, in_dir, out_dir, clip_values=None, cases=None, save_as_slices=True):
         """
         Attributes:
             in_dir (str): directory with the input data. Should be the kits19/data directory.
@@ -31,6 +32,9 @@ class Preprocessor(object):
             clip_values (list, tuple): values you want to clip CT scans to
                 * For whole dset, the [0.5, 99.5] percentiles are [-75.75658734213053, 349.4891265535317]
             cases: list of case folders to preprocess
+            save_as_slices (bool): whether or not to save the outputted preprocessed as individual 3D numpy arrays
+                or all of the 2D slices as separate numpy arrays. Saved 2D slices follow the naming convention:
+                imaging_{slice #}.npy or segmentation_{slice #}.npy
         """
         self.in_dir = in_dir
         self.out_dir = out_dir
@@ -48,6 +52,10 @@ class Preprocessor(object):
                           for case in os.listdir(self.in_dir) \
                           if case.startswith("case")]
             assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
+
+        self.save_as_slices = save_as_slices
+        self.pos_slice_dict = {} if save_as_slices else None
+
         # making directory if out_dir doesn't exist
         if not isdir(out_dir):
             os.mkdir(out_dir)
@@ -78,6 +86,10 @@ class Preprocessor(object):
             coords_dict = self.append_to_coords_dict(coords_dict, case, coords, orig_shape)
         df = pd.DataFrame(coords_dict)
         df.to_csv(join(self.out_dir, "coords.csv"))
+        if self.pos_slice_dict is not None:
+            print("Saving the positive slice dictionary that's to be used for BinarySliceGenerator.")
+            with open(join(self.out_dir, 'tumor_slice_indices.json'), 'w') as fp:
+                json.dump(self.pos_slice_dict, fp)
         print("Done!")
 
     def preprocess_2d(self, image, mask):
@@ -90,7 +102,7 @@ class Preprocessor(object):
             image: numpy array
             mask: numpy array
         Returns:
-            tuple(preprocessed (image, label), list of lists of coords)
+            tuple (preprocessed (image, label), list of lists of coords)
         """
         clipped = np.clip(image, self.clip_values[0], self.clip_values[1])
         cropped_and_coords = extract_nonint_region(clipped, mask, outside_value=self.clip_values[0])
@@ -114,9 +126,25 @@ class Preprocessor(object):
             os.mkdir(out_case_dir)
             print("Created directory: {0}".format(out_case_dir))
 
-        np.save(os.path.join(out_case_dir, "imaging.npy"), image)
-        np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
         print("Saving: {0}".format(case))
+        # iterates through all slices and saves them individually as 2D arrays
+        if self.save_as_slices:
+            tumor_indices = []
+            for slice_idx in range(mask.shape[0]):
+                label_slice = mask[slice_idx]
+                # logging tumor slice indices to be appended; this can be extended for other classes, but focusing on tumor for now
+                if 2 in np.unique(label_slice).tolist():
+                    tumor_indices.append(slice_idx)
+                # naming convention: {type of slice}_{case}_{slice_idx}
+                np.save(os.path.join(out_case_dir, "imaging_{0}.npy".format(slice_idx)), image[slice_idx])
+                np.save(os.path.join(out_case_dir, "segmentation_{0}.npy".format(slice_idx)), label_slice)
+            print("Saved {0} Slices".format(mask.shape[0]))
+            # {case1: [idx1, idx2,...], case2: ...}
+            self.pos_slice_dict[case] = tumor_indices
+        # saving 3D volumes as 3D numpy arrays
+        elif not self.save_as_slices:
+            np.save(os.path.join(out_case_dir, "imaging.npy"), image)
+            np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
 
     def append_to_coords_dict(self, coords_dict, case, coords, orig_shape):
         """
