@@ -136,8 +136,12 @@ class Preprocessor(object):
                 if 2 in np.unique(label_slice).tolist():
                     tumor_indices.append(slice_idx)
                 # naming convention: {type of slice}_{case}_{slice_idx}
-                np.save(os.path.join(out_case_dir, "imaging_{0}.npy".format(slice_idx)), image[slice_idx])
-                np.save(os.path.join(out_case_dir, "segmentation_{0}.npy".format(slice_idx)), label_slice)
+                slice_idx_str = str(slice_idx)
+                # adding 0s to slice_idx until it reaches 3 digits=> so sorting files is easier when stacking
+                while len(slice_idx_str) < 3:
+                    slice_idx_str = "0"+slice_idx_str
+                np.save(os.path.join(out_case_dir, "imaging_{0}.npy".format(slice_idx_str)), image[slice_idx])
+                np.save(os.path.join(out_case_dir, "segmentation_{0}.npy".format(slice_idx_str)), label_slice)
             print("Saved {0} Slices".format(mask.shape[0]))
             # {case1: [idx1, idx2,...], case2: ...}
             self.pos_slice_dict[case] = tumor_indices

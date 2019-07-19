@@ -285,9 +285,13 @@ class BinarySliceGenerator(BaseTransformGenerator):
                 slice_idx = self.get_rand_pos_slice_idx(case_raw)
             elif not pos_sample:
                 slice_idx = self.get_rand_slice_idx(case_id)
+            # formatting string
+            slice_idx_str = str(slice_idx)
+            while len(slice_idx_str) < 3:
+                slice_idx_str = "0"+slice_idx_str
             # loads data as a numpy arr and then adds the channel + batch size dimensions
-            x_train = np.expand_dims(np.load(os.path.join(case_id, "imaging_{0}.npy".format(slice_idx))), 0)
-            y_train = np.expand_dims(np.load(os.path.join(case_id, "segmentation_{0}.npy".format(slice_idx))), 0)
+            x_train = np.expand_dims(np.load(os.path.join(case_id, "imaging_{0}.npy".format(slice_idx_str))), 0)
+            y_train = np.expand_dims(np.load(os.path.join(case_id, "segmentation_{0}.npy".format(slice_idx_str))), 0)
             y_train[y_train == 1] = 0
             y_train[y_train == 2] = 1
             images_x.append(x_train), images_y.append(y_train)
