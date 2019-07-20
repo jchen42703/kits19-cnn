@@ -1,9 +1,10 @@
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import concatenate, Input, Conv2D, Conv2DTranspose, \
                                     AveragePooling2D, MaxPooling2D
-import tensorflow.keras.backend as K
 from kits19cnn.models.focal_tversky_unet.recursive_utils import *
 from functools import partial
+
+import tensorflow.keras.backend as K
 
 K.set_image_data_format("channels_first")  # TF dimension ordering in this code
 kinit = "glorot_normal"
