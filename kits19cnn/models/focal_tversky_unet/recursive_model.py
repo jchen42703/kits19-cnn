@@ -10,7 +10,7 @@ K.set_image_data_format("channels_first")  # TF dimension ordering in this code
 kinit = "glorot_normal"
 concatenate = partial(concatenate, axis=1)
 
-class RecursiveAttenUNet(object):
+class RecursiveAttnUNet(object):
     """
     Recursive version of the Attention Gated U-Net; 2D only
     Attributes:
