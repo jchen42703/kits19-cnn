@@ -344,10 +344,12 @@ class FromSliceDataPredictor(Predictor):
         tu_dices = []
         for (i, case) in enumerate(self.cases):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            all_imaging = sorted([os.path.join(self.in_dir, case) \
-                                  for case in os.listdir(self.in_dir) \
-                                  if case.startswith("imaging_")])
-            preprocesed_img = np.stack([np.load(slice_) for slice_ in all_imaging])
+            # creating list of paths to all imaging slice .npy files in the directory
+            case_dir = join(self.in_dir, case)
+            all_imaging = [join(case_dir, file) for file in os.listdir(case_dir)
+                           if file.startswith("imaging_")]
+
+            preprocessed_img = np.stack([np.load(slice_) for slice_ in all_imaging])
             if standardize:
                 preprocessed_img = self.standardize(preprocessed_img, mean_std, standardize_on_the_fly)
             coords, orig_shape = self.parse_coords_csv(case)
@@ -407,8 +409,8 @@ class FromSliceDataPredictor(Predictor):
         shape = img.shape
         arr = img.flatten()
         if standardize_on_the_fly:
-            mean = arr.mean
-            std = arr.std
+            mean = arr.mean()
+            std = arr.std()
         else:
             mean, std = mean_std
         norm_img = (arr-mean) / std
