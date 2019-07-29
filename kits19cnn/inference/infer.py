@@ -35,7 +35,7 @@ class Predictor(Preprocessor):
             n_repeats (int): Number of times to repeat the prediction process
             regions_class_order (tuple or None): classes you want the corresponding predicted labels to contain
         """
-        super().__init__(in_dir=in_dir, out_dir=out_dir, clip_values=clip_values, cases=cases)
+        super().__init__(in_dir=in_dir, out_dir=out_dir, clip_values=clip_values, cases=cases, preprocess_segmentations=False)
         self.model = model
         if from_logits:
             self.load_model_from_logits_softmax(weights_path)
@@ -55,41 +55,28 @@ class Predictor(Preprocessor):
         self.n_repeats = n_repeats
         self.regions_class_order = regions_class_order
 
-    def predict(self, evaluate=True):
+    def predict(self):
         """
         Main prediction function. Saves predictions, images, labels
         """
-        # Generating data and saving them recursively
-        tk_dices = []
-        tu_dices = []
+        # Generating data, predicting, and saving the predictions recursively
         for (i, case) in enumerate(self.cases):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
             if self.coords_csv is None:
                 image = nib.load(join(case, "imaging.nii.gz")).get_fdata()
-                label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
                 orig_shape = image.shape
-                # preprocessing
-                preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label)
-                self.save_imgs(preprocessed_img, preprocessed_label, case)
+                # preprocessing on the fly
+                preprocessed_img, _, coords = self.preprocess_2d(image, None)
+                self.save_imgs(preprocessed_img, None, case)
             else:
                 preprocessed_img = np.load(join(case, "imaging.npy"))
-                preprocessed_label = np.load(join(case, "segmentation.npy"))
                 coords, orig_shape = self.parse_coords_csv(case)
 
             preprocessed_img = np.expand_dims(preprocessed_img, 0)
-            preprocessed_label = np.expand_dims(preprocessed_label, 0)
             # predicting + post-processing
             pred, act_pred = self.predict_3D_2Dconv_tiled(preprocessed_img)
             pred = pad_nonint_extraction(pred, orig_shape, coords, pad_border_mode="constant")
             self.save_predictions(pred, act_pred, case=case)
-            if evaluate:
-                label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
-                tk_dice, tu_dice = evaluate_official(label, pred)
-                print("Tumour and Kidney Dice: {0}; Tumour Dice: {1}".format(tk_dice, tu_dice))
-                tk_dices.append(tk_dice), tu_dices.append(tu_dice)
-        if evaluate:
-            print("Average Tumour Kidney Dice: {0}\n".format(np.mean(tk_dices)) +
-                  "Average Tumour Dice: {0}\n".format(np.mean(tu_dices)))
 
     def predict_3D_2Dconv_tiled(self, data, BATCH_SIZE=None, mirror_axes=(0, 1),
                                 step=2, pad_border_mode="edge", pad_kwargs=None):
