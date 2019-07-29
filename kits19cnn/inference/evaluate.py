@@ -12,12 +12,15 @@ class Evaluator(object):
     Evaluates all of the predictions in a user-specified directory and logs them in a csv. Assumes that
     the output is in the KiTS19 file structure.
     """
-    def __init__(self, orig_img_dir, pred_dir, cases=None):
+    def __init__(self, orig_img_dir, pred_dir, cases=None, binary_label=None):
         """
         Attributes:
             orig_img_dir: path to the original kits19/data directory
             pred_dir: path to the predictions directory, created by Predictor
             cases: list of filepaths to case folders or just case folder names
+            binary_label: label (not including background class) to evaluate. Defaults to None.
+                * If None, Evaluator does multi-class evaluation.
+                F-score results are logged in the tu_dice column. tk_dice is automatically set to 0.
         """
         self.orig_img_dir = orig_img_dir
         self.pred_dir = pred_dir
@@ -32,6 +35,7 @@ class Evaluator(object):
             cases_raw = [Path(case).name for case in cases]
             # filtering them down to only cases in pred_dir
             self.cases_raw = [case for case in cases_raw if isdir(join(self.pred_dir, case))]
+        self.binary_label = binary_label
 
     def evaluate_all(self):
         """
@@ -47,6 +51,10 @@ class Evaluator(object):
             print("Evaluating {0}/{1}: {2}".format(i+1, len(self.cases_raw), case))
             # loading the necessary arrays
             label = nib.load(join(self.orig_img_dir, case, "segmentation.nii.gz")).get_fdata()
+            if self.binary_label is not None:
+                # adjusting labels for binary evaluation
+                label[label != self.binary_label] = 0
+                label[label == self.binary_label] = 1
             save_name = "pred_{0}.npy".format(case)
             pred = np.load(join(self.pred_dir, case, save_name))
             metrics_dict = self.evaluate_with_all_metrics_per_case(metrics_dict, label, pred, case)
@@ -76,8 +84,14 @@ class Evaluator(object):
         to the main metrics dictionary that is to become results.csv.
         """
         # calculating metrics
-        tk_dice, tu_dice = evaluate_official(y_true, y_pred)
-        prec, recall, _, supp = precision_recall_fscore_support(y_true.ravel(), y_pred.ravel(), labels=[0, 1, 2])
+        labels = [0, 1, 2] if self.binary_label is None else [0, 1]
+        prec, recall, fscore, supp = precision_recall_fscore_support(y_true.ravel(), y_pred.ravel(), labels=labels)
+        if self.binary_label is None:
+            tk_dice, tu_dice = evaluate_official(y_true, y_pred)
+        else:
+            # Not pretty, but logging binary dice results in the tu_dice column
+            tk_dice, tu_dice = (0, fscore)
+        
         pred_supp = np.unique(y_pred, return_counts=True)[-1]
         print("precision: {1}\nrecall: {2}\nsupport: {3}".format(case, prec, recall, supp))
         print("Tumour and Kidney Dice: {0}; Tumour Dice: {1}".format(tk_dice, tu_dice))
