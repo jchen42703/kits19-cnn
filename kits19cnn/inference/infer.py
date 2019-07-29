@@ -330,7 +330,7 @@ class FromSliceDataPredictor(Predictor):
 
         self.multi_output = multi_output
 
-    def predict(self, standardize=True, mean_std=None, standardize_on_the_fly=True):
+    def predict(self, standardize=True, mean_std=None, standardize_on_the_fly=True, standardize_whole=True):
         """
         Main prediction function. Saves predictions.
         Args:
@@ -351,7 +351,7 @@ class FromSliceDataPredictor(Predictor):
 
             preprocessed_img = np.stack([np.load(slice_) for slice_ in all_imaging])
             if standardize:
-                preprocessed_img = self.standardize(preprocessed_img, mean_std, standardize_on_the_fly)
+                preprocessed_img = self.standardize(preprocessed_img, mean_std, standardize_on_the_fly, standardize_whole)
             coords, orig_shape = self.parse_coords_csv(case)
             preprocessed_img = np.expand_dims(preprocessed_img, 0)
             # predicting + post-processing
@@ -400,22 +400,27 @@ class FromSliceDataPredictor(Predictor):
 
         return result
 
-    def standardize(self, img, mean_std=None, standardize_on_the_fly=True):
+    def standardize(self, img, mean_std=None, standardize_on_the_fly=True, standardize_whole=True):
         """
         Handles the z-score standardization based on mean_std or does it per-slice if
         standardize_on_the_fly is True.
+        Args:
+            standardize_whole (bool): whether or not to standardize the whole 3d volume or per slice
         """
+        def standardize_array(arr, mean, std):
+            orig_shape = arr.shape
+            arr = arr.flatten()
+            normalized = (arr-mean) / std
+            return normalized.reshape(orig_shape)
         # standardization
-        shape = img.shape
-        arr = img.flatten()
-        if standardize_on_the_fly:
-            mean = arr.mean()
-            std = arr.std()
+        if standardize_whole:
+            # standardizing the whole volume
+            mean, std = (img.mean(), img.std()) if standardize_on_the_fly else mean_std
+            norm_img = standardize_array(img, mean, std)
         else:
-            mean, std = mean_std
-        norm_img = (arr-mean) / std
-        norm_img = norm_img.reshape(shape)
-        return img
+            # standardize per 2d slice; not compatible with mean_std
+            norm_img = np.stack([standardize_array(arr, arr.mean(), arr.std()) for arr in img])
+        return norm_img
 
 def pad_nonint_extraction(image, orig_shape, coords, pad_border_mode="edge", pad_kwargs={}):
     """
