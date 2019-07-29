@@ -19,21 +19,21 @@ class Preprocessor(object):
             * imaging.npy
             * segmentation.npy
         * saves the crop coordinates in out_dir as "coords.csv"
-    3D Preprocessing:
-        2D Preprocessing but resample to median spacing beforehand
-        Need to figure out how to uninterpolate
     """
-    def __init__(self, in_dir, out_dir, clip_values=None, cases=None):
+    def __init__(self, in_dir, out_dir, clip_values=None, cases=None, preprocess_segmentations=True):
         """
         Attributes:
             in_dir (str): directory with the input data. Should be the kits19/data directory.
             out_dir (str): output directory where you want to save each case
             clip_values (list, tuple): values you want to clip CT scans to
                 * For whole dset, the [0.5, 99.5] percentiles are [-75.75658734213053, 349.4891265535317]
-            cases: list of case folders to preprocess
+            cases: list of paths to case folders to preprocess
+            preprocess_segmentations (bool): whether or not to preprocess the segmentations. Set this
+                equal to False when you're making your submission.
         """
         self.in_dir = in_dir
         self.out_dir = out_dir
+        self.preprocess_seg = preprocess_segmentations
 
         if clip_values is None:
             # automatically getting high/low values to clip to
@@ -71,7 +71,11 @@ class Preprocessor(object):
         for (i, case) in enumerate(self.cases):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
             image = nib.load(join(case, "imaging.nii.gz")).get_fdata()
-            label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
+            if self.preprocess_seg:
+                label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
+            else:
+                label = None
+            # preprocessed_label = None when label = None
             preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label)
             orig_shape = image.shape # need this for inference
             self.save_imgs(preprocessed_img, preprocessed_label, case)
@@ -115,7 +119,8 @@ class Preprocessor(object):
             print("Created directory: {0}".format(out_case_dir))
 
         np.save(os.path.join(out_case_dir, "imaging.npy"), image)
-        np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
+        if self.preprocess_seg:
+            np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
         print("Saving: {0}".format(case))
 
     def append_to_coords_dict(self, coords_dict, case, coords, orig_shape):
@@ -180,7 +185,7 @@ def extract_nonint_region(image, mask=None, outside_value=0):
         outside_value: (optional; default: 0)
     Returns:
         the resized image
-        segmentation mask (when mask is not None)
+        segmentation mask (when mask is not None, else: None)
         a nested list of the mins and and maxes of each axis (when coords = True)
     """
     # Copyright 2017 Division of Medical Image Computing, German Cancer Research Center (DKFZ)
@@ -211,4 +216,4 @@ def extract_nonint_region(image, mask=None, outside_value=0):
     if mask is not None:
         return (image[resizer], mask[resizer], coord_list)
     elif mask is None:
-        return (image[resizer], coord_list)
+        return (image[resizer], None, coord_list)
