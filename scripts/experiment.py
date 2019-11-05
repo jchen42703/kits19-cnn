@@ -1,6 +1,7 @@
 import os
 import torch
 
+from glob import glob
 from abc import abstractmethod
 from pathlib import Path
 from catalyst.dl.callbacks import AccuracyCallback, EarlyStoppingCallback, \
@@ -15,6 +16,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, \
 
 from kits19cnn.models import Generic_UNet
 from kits19cnn.io import VoxelDataset
+from kits19cnn.loss_functions import DC_and_CE_loss
 from utils import get_preprocessing, get_training_augmentation, \
                   get_validation_augmentation, seed_everything
 
@@ -97,7 +99,8 @@ class TrainExperiment(object):
         """
         Creates a list of all paths to case folders for the dataset split
         """
-        case_list = sorted(glob(os.path.join(self.config["data_folder"], "*/")))
+        search_path = os.path.join(self.config["data_folder"], "*/")
+        case_list = sorted(glob(search_path))[:210]
         return case_list
 
     def get_split(self):
@@ -169,12 +172,13 @@ class TrainExperiment(object):
     def get_criterion(self):
         loss_name = self.config["loss"].lower()
         if loss_name == "bce_dice_loss":
-            criterion = smp.utils.losses.BCEDiceLoss(eps=1.)
+            raise NotImplementedError
+            # criterion = smp.utils.losses.BCEDiceLoss(eps=1.)
         elif loss_name == "bce":
             criterion = torch.nn.BCEWithLogitsLoss()
         elif loss_name == "ce_dice_loss":
             # for softmax
-            criterion = DC_and_CE_loss()
+            criterion = DC_and_CE_loss(soft_dice_kwargs={}, ce_kwargs={})
         print(f"Criterion: {criterion}")
 
         return criterion
@@ -215,8 +219,6 @@ class TrainSegExperimentFromConfig(TrainExperiment):
     - lr_scheduler
     - criterion
     - callbacks
-    Note: There is no model_name for this experiment. There is `encoder` and
-    `decoder` under `model_params`. You can also specify the attention_type
     """
     def __init__(self, config: dict):
         """
@@ -231,7 +233,6 @@ class TrainSegExperimentFromConfig(TrainExperiment):
         Creates and returns the train and validation datasets.
         """
         # preparing transforms
-        encoder = self.model_params["encoder"]
         train_aug = get_training_augmentation(self.io_params["aug_key"])
         val_aug = get_validation_augmentation(self.io_params["aug_key"])
         # creating the datasets
@@ -246,12 +247,14 @@ class TrainSegExperimentFromConfig(TrainExperiment):
     def get_model(self):
         architecture = self.model_params["architecture"]
         if architecture == "nnunet":
-            self.model_params["conv_op"] = torch.nn.Conv3d
-            self.model_params["norm_op"] = torch.nn.InstanceNorm3d
-            self.model_params["dropout_op"] = torch.nn.Dropout3d
-            self.model_params["nonlin"] = torch.nn.ReLU
-            self.model_params["final_nonlin"] = lambda x: x
-            model = Generic_UNet(**self.model_params[architecture])
+            architecture_kwargs = self.model_params[architecture]
+            architecture_kwargs["conv_op"] = torch.nn.Conv3d
+            architecture_kwargs["norm_op"] = torch.nn.InstanceNorm3d
+            architecture_kwargs["dropout_op"] = torch.nn.Dropout3d
+            architecture_kwargs["nonlin"] = torch.nn.ReLU
+            architecture_kwargs["nonlin_kwargs"] = {"inplace": True}
+            architecture_kwargs["final_nonlin"] = lambda x: x
+            model = Generic_UNet(**architecture_kwargs)
         else:
             raise NotImplementedError
         # calculating # of parameters
