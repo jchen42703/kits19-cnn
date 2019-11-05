@@ -3,7 +3,7 @@ import nibabel as nib
 import pandas as pd
 
 from os.path import isdir, join
-from kits19cnn.models.metrics import evaluate_official
+from kits19cnn.metrics import evaluate_official
 from sklearn.metrics import precision_recall_fscore_support
 from pathlib import Path
 
