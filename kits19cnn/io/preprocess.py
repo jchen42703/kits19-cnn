@@ -5,41 +5,43 @@ import pandas as pd
 from pathlib import Path
 from os.path import join, isdir
 
+from .resample import resample_patient
+
 class Preprocessor(object):
     """
-    2D Preprocessing:
+    Preprocessing:
         * clipping (ROI)
-            * allow ability to specify intensities
-            * have ability to automatically do it
         * crop images to the nonint region (percentile_005)
-        * mean_std_norm based on whole dset stats
-            * allow ability to specify intensities
-            * have ability to automatically do it
         * save as .npy array
             * imaging.npy
             * segmentation.npy
         * saves the crop coordinates in out_dir as "coords.csv"
-    3D Preprocessing:
-        2D Preprocessing but resample to median spacing beforehand
-        Need to figure out how to uninterpolate
+        * resampling from `orig_spacing` to `target_spacing`
     """
-    def __init__(self, in_dir, out_dir, clip_values=None, cases=None):
+    def __init__(self, in_dir, out_dir, cases=None,
+                 orig_spacing=(3, 0.78162497, 0.78162497),
+                 target_spacing=(3.22, 1.62, 1.62),
+                 clip_values=None, extract_nonint=False):
         """
         Attributes:
             in_dir (str): directory with the input data. Should be the kits19/data directory.
             out_dir (str): output directory where you want to save each case
-            clip_values (list, tuple): values you want to clip CT scans to
-                * For whole dset, the [0.5, 99.5] percentiles are [-75.75658734213053, 349.4891265535317]
             cases: list of case folders to preprocess
+            orig_spacing (list/tuple): spacing of nifti files
+                Assumes same spacing
+            target_spacing (list/tuple): spacing to resample to
+            clip_values (list, tuple): values you want to clip CT scans to.
+                Defaults to None for no clipping.
+            extract_nonint (bool): whether or not to extract the non-zero
+                regions for preprocessing
         """
         self.in_dir = in_dir
         self.out_dir = out_dir
+        self.clip_values = clip_values
 
-        if clip_values is None:
-            # automatically getting high/low values to clip to
-            self.clip_values = self.get_clip_values()
-        else:
-            self.clip_values = clip_values
+        self.orig_spacing = np.array(orig_spacing)
+        self.resample_to = np.array(resample_to)
+        self.extract_nonint = extract_nonint
 
         self.cases = cases
         # automatically collecting all of the case folder names
@@ -47,6 +49,7 @@ class Preprocessor(object):
             self.cases = [os.path.join(self.in_dir, case) \
                           for case in os.listdir(self.in_dir) \
                           if case.startswith("case")]
+            self.cases = sorted(self.cases)[:210]
             assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
         # making directory if out_dir doesn't exist
         if not isdir(out_dir):
@@ -72,7 +75,7 @@ class Preprocessor(object):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
             image = nib.load(join(case, "imaging.nii.gz")).get_fdata()
             label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
-            preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label)
+            preprocessed_img, preprocessed_label, coords = self.preprocess(image, label)
             orig_shape = image.shape # need this for inference
             self.save_imgs(preprocessed_img, preprocessed_label, case)
             coords_dict = self.append_to_coords_dict(coords_dict, case, coords, orig_shape)
@@ -80,21 +83,29 @@ class Preprocessor(object):
         df.to_csv(join(self.out_dir, "coords.csv"))
         print("Done!")
 
-    def preprocess_2d(self, image, mask):
+    def preprocess(self, image, mask):
         """
-        Procedure:
-        1) Clipping to specified values. Defaults to [0.5, 99.5 percentiles].
-        2) Cropping out non-0.5-percentile region
-
+        Clipping, cropping, and resampling.
         Args:
             image: numpy array
             mask: numpy array
         Returns:
-            tuple(preprocessed (image, label), list of lists of coords)
+            tuple of:
+                - preprocessed image
+                - preprocessed mask
+                - list of lists of coords
         """
-        clipped = np.clip(image, self.clip_values[0], self.clip_values[1])
-        cropped_and_coords = extract_nonint_region(clipped, mask, outside_value=self.clip_values[0])
-        return cropped_and_coords
+        if self.resample_to:
+            image, mask = resample_patient(image, mask, self.orig_spacing
+                                           target_spacing=self.resample_to)
+        if self.clip_values:
+            image = np.clip(image, self.clip_values[0], self.clip_values[1])
+        if self.extract_nonint:
+            image, mask, coords = extract_nonint_region(image, mask,
+                                                        outside_value=self.clip_values[0])
+            return (image, mask, coords)
+        else:
+            return (image, mask)
 
     def save_imgs(self, image, mask, case):
         """
@@ -140,36 +151,11 @@ class Preprocessor(object):
         coords_dict["z_lb"].append(z_lb), coords_dict["z_ub"].append(z_ub)
         coords_dict["x_lb"].append(x_lb), coords_dict["x_ub"].append(x_ub)
         coords_dict["y_lb"].append(y_lb), coords_dict["y_ub"].append(y_ub)
-        coords_dict["orig_z"].append(orig_z), coords_dict["orig_x"].append(orig_x), coords_dict["orig_y"].append(orig_y)
+        coords_dict["orig_z"].append(orig_z)
+        coords_dict["orig_x"].append(orig_x)
+        coords_dict["orig_y"].append(orig_y)
 
         return coords_dict
-
-    def get_clip_values(self):
-        """
-        Automatically gathers the low/high values to clip to
-        Returns:
-            clip_values (tuple): [0.5, 99.5] percentiles of the ROI pixels to clip to
-        """
-        pixels = self.gather_roi_pixels()
-        # The [0.5, 99.5] percentiles to clip to
-        clip_values = (np.percentile(pixels, 0.5), np.percentile(pixels, 99.5))
-        print("0.5 Percentile: {0}\n99.5 Percentile: {1}".format(percentiles[0], percentiles[1]))
-        return clip_values
-
-    def gather_roi_pixels(self):
-        """
-        Collects all of the segmentation ROI pixels in a numpy array.
-        Returns:
-            pixels (numpy array):
-        """
-        pixels = np.array([])
-        for (i, case) in enumerate(self.cases):
-            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            x = nib.load(os.path.join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
-            y = nib.load(os.path.join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
-            overlap = x * y
-            pixels = np.append(pixels, overlap[overlap != 0].flatten())
-        return pixels
 
 def extract_nonint_region(image, mask=None, outside_value=0):
     """
