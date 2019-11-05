@@ -2,6 +2,7 @@ import os
 import numpy as np
 import nibabel as nib
 
+import torch
 from torch.utils.data import Dataset
 
 class VoxelDataset(Dataset):
@@ -29,12 +30,15 @@ class VoxelDataset(Dataset):
         case_id = self.im_ids[idx]
         x, y = self.load_volume(case_id)
         if self.transforms:
-            data_dict = self.transforms(**{"data": x, "seg": y})
+            data_dict = self.transforms(**{"data": x[None], "seg": y[None]})
             x, y = data_dict["data"], data_dict["seg"]
         if self.preprocessing:
             preprocessed = self.preprocessing(**{"data": x, "seg": y})
             x, y = preprocessed["data"], preprocessed["seg"]
-        return img, mask
+        # squeeze to remove batch size dim
+        x = torch.squeeze(x, dim=0).float()
+        y = torch.squeeze(y, dim=0)
+        return (x, y)
 
     def __len__(self):
         return len(self.im_ids)
