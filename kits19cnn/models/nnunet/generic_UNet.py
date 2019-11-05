@@ -19,8 +19,8 @@ import numpy as np
 import torch.nn.functional
 
 from kits19cnn.utils import softmax_helper
-from initialization import InitWeights_He
-from neural_network import SegmentationNetwork
+from .initialization import InitWeights_He
+from .neural_network import SegmentationNetwork
 
 class ConvDropoutNormNonlin(nn.Module):
     def __init__(self, input_channels, output_channels,
