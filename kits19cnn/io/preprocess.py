@@ -40,7 +40,7 @@ class Preprocessor(object):
         self.clip_values = clip_values
 
         self.orig_spacing = np.array(orig_spacing)
-        self.resample_to = np.array(resample_to)
+        self.target_spacing = np.array(target_spacing)
         self.extract_nonint = extract_nonint
 
         self.cases = cases
@@ -95,9 +95,9 @@ class Preprocessor(object):
                 - preprocessed mask
                 - list of lists of coords
         """
-        if self.resample_to:
+        if self.target_spacing:
             image, mask = resample_patient(image, mask, self.orig_spacing
-                                           target_spacing=self.resample_to)
+                                           target_spacing=self.target_spacing)
         if self.clip_values:
             image = np.clip(image, self.clip_values[0], self.clip_values[1])
         if self.extract_nonint:
