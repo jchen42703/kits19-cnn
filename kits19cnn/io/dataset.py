@@ -30,7 +30,10 @@ class VoxelDataset(Dataset):
         case_id = self.im_ids[idx]
         x, y = self.load_volume(case_id)
         if self.transforms:
-            data_dict = self.transforms(**{"data": x[None], "seg": y[None]})
+            x = x[None] if len(x.shape) == 4 else x
+            y = y[None] if len(y.shape) == 4 else y
+            # batchgenerators requires shape: (b, c, ...)
+            data_dict = self.transforms(**{"data": x, "seg": y})
             x, y = data_dict["data"], data_dict["seg"]
         if self.preprocessing:
             preprocessed = self.preprocessing(**{"data": x, "seg": y})
