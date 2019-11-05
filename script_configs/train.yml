@@ -1,0 +1,67 @@
+  mode: segmentation
+  logdir: /content/logs/segmentation/
+  data_folder: /content/kits19/data
+
+  io_params:
+    test_size: 0.2
+    split_seed: 200
+    batch_size: 13
+    num_workers: 2
+    aug_key: aug2
+    file_ending: .nii
+
+  loss: bce_dice_loss
+  num_epochs: 17
+  fp16: False
+
+  model_params:
+    architecture: nnunet
+    nnunet:
+      input_channels: 1
+      base_num_features: 30
+      num_classes: 3
+      num_pool: 5
+      num_conv_per_stage: 2
+      feat_map_mul_on_downscale: 2
+      deep_supervision: False
+      convolutional_pooling: True
+      convolutional_upsampling: True
+      max_num_features: 320
+
+  opt_params:
+    opt: sgd
+    lr: 0.0001
+    scheduler_params:
+      scheduler: plateau
+      plateau:
+        factor: 0.15
+        patience: 30 #2
+        mode: min
+        verbose: True
+        threshold: 1e-3
+        threshold_mode: abs
+      # cosineannealing:
+      #   T_max: 17
+      # cosineannealingwr:
+      #   T_0: 7
+      #   T_mult: 2
+      # clr:
+      #   base_lr: 0.0001
+      #   max_lr: 0.001
+      #   step_size_up: 494
+      #   mode: exp_range
+
+  callback_params:
+    # ppvtprf1:
+    #   num_classes: 3
+    #   threshold: 0.5
+    #   activation: Softmax
+    earlystop:
+      patience: 5
+      min_delta: 0.001
+    # accuracy:
+    #   threshold: 0.5
+    #   activation: Softmax
+    checkpoint_params:
+      checkpoint_path: ~ #/content/logs/segmentation/checkpoints/last.pth #/content/logs/segmentation/checkpoints/last_full.pth
+      mode: model_only
