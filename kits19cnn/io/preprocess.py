@@ -96,7 +96,7 @@ class Preprocessor(object):
                 - list of lists of coords
         """
         if self.target_spacing:
-            image, mask = resample_patient(image, mask, self.orig_spacing
+            image, mask = resample_patient(image, mask, self.orig_spacing,
                                            target_spacing=self.target_spacing)
         if self.clip_values:
             image = np.clip(image, self.clip_values[0], self.clip_values[1])
