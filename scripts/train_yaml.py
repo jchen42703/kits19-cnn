@@ -1,8 +1,7 @@
 from catalyst.dl.runner import SupervisedRunner
 
 from utils import seed_everything
-from experiment import TrainClassificationExperimentFromConfig, \
-                       TrainSegExperimentFromConfig
+from experiment import TrainSegExperimentFromConfig
 
 def main(config):
     """
@@ -21,7 +20,7 @@ def main(config):
     assert mode in ["classification", "segmentation"], \
         "The `mode` must be one of ['classification', 'segmentation']."
     if mode == "classification":
-        exp = TrainClassificationExperimentFromConfig(config)
+        raise NotImplementedError
     elif mode == "segmentation":
         exp = TrainSegExperimentFromConfig(config)
 
