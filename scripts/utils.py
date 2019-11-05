@@ -4,8 +4,6 @@ import numpy as np
 import batchgenerators.transforms as bg
 import torch
 
-from kits19cnn.io.utils import to_tensor
-
 def get_training_augmentation(augmentation_key="aug1"):
     default_angle = (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi)
     transform_dict = {
