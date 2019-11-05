@@ -105,9 +105,12 @@ class Preprocessor(object):
         if self.clip_values is not None:
             image = np.clip(image, self.clip_values[0], self.clip_values[1])
         if self.extract_nonint:
-            image, mask, coords = extract_nonint_region(image, mask,
+            # coming in as (c, x, y, z), but extract_nonint_region needs
+            # only (x, y, z) so we squeeze
+            image, mask, coords = extract_nonint_region(image.squeeze(),
+                                                        mask.squeeze(),
                                                         outside_value=self.clip_values[0])
-            return (image, mask, coords)
+            return (image[None], mask[None], coords)
         else:
             return (image, mask)
 
