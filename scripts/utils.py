@@ -8,7 +8,8 @@ def get_training_augmentation(augmentation_key="aug1"):
     default_angle = (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi)
     transform_dict = {
                       "aug1": [
-                                bg.SpatialTransform(patch_shape=(80, 160, 160),
+                                bg.SpatialTransform(patch_size=(80, 160, 160),
+                                                    patch_center_dist_from_border=(30, 30, 30),
                                                     do_elastic_deform=True,
                                                     alpha=(0., 900.),
                                                     sigma=(9., 13.),
@@ -34,20 +35,20 @@ def get_training_augmentation(augmentation_key="aug1"):
 	                          ],
                      }
     train_transform = transform_dict[augmentation_key]
-    return albu.Compose(train_transform)
+    return bg.Compose(train_transform)
 
 def get_validation_augmentation(augmentation_key):
     """Add paddings to make image shape divisible by 32"""
     transform_dict = {
                       "aug1": [
-                        bg.RandomCropTransform(patch_shape=(80, 160, 160))
+                        bg.RandomCropTransform(crop_size=(80, 160, 160))
                       ],
                       "aug2": [
-                        bg.CenterCropTransform(patch_shape=(80, 160, 160))
+                        bg.CenterCropTransform(crop_size=(80, 160, 160))
                       ],
                      }
     test_transform = transform_dict[augmentation_key]
-    return albu.Compose(test_transform)
+    return bg.Compose(test_transform)
 
 def get_preprocessing():
     """Construct preprocessing transform
@@ -59,10 +60,13 @@ def get_preprocessing():
         transform: albumentations.Compose
 
     """
+    bgct = bg.color_transforms
+    bgsnt = bg.sample_normalization_transforms
     _transform = [
+        bgct.ClipValueRange(min=-79, max=304),
+        bgsnt.MeanStdNormalizationTransform(mean=101, std=76.9,
+                                            per_channel=False),
         bg.NumpyToTensor(),
-        bg.ClipValueRange(min=-79, max=304),
-        bg.MeanStdNormalizationTransform(mean=101, std=76.9),
     ]
     return bg.Compose(_transform)
 
