@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 from os.path import join, isdir
 
-from .resample import resample_patient
+from kits19cnn.io.resample import resample_patient
 
 class Preprocessor(object):
     """
@@ -73,12 +73,16 @@ class Preprocessor(object):
         # Generating data and saving them recursively
         for (i, case) in enumerate(self.cases):
             print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            image = nib.load(join(case, "imaging.nii.gz")).get_fdata()
-            label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
-            preprocessed_img, preprocessed_label, coords = self.preprocess(image, label)
-            orig_shape = image.shape # need this for inference
+            image = nib.load(join(case, "imaging.nii.gz")).get_fdata()[None]
+            label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()[None]
+            try:
+                preprocessed_img, preprocessed_label, coords = self.preprocess(image, label)
+                orig_shape = image.shape # need this for inference
+                coords_dict = self.append_to_coords_dict(coords_dict, case, coords, orig_shape)
+            except ValueError:
+                preprocessed_img, preprocessed_label = self.preprocess(image, label)
+
             self.save_imgs(preprocessed_img, preprocessed_label, case)
-            coords_dict = self.append_to_coords_dict(coords_dict, case, coords, orig_shape)
         df = pd.DataFrame(coords_dict)
         df.to_csv(join(self.out_dir, "coords.csv"))
         print("Done!")
@@ -95,10 +99,10 @@ class Preprocessor(object):
                 - preprocessed mask
                 - list of lists of coords
         """
-        if self.target_spacing:
+        if self.target_spacing is not None:
             image, mask = resample_patient(image, mask, self.orig_spacing,
                                            target_spacing=self.target_spacing)
-        if self.clip_values:
+        if self.clip_values is not None:
             image = np.clip(image, self.clip_values[0], self.clip_values[1])
         if self.extract_nonint:
             image, mask, coords = extract_nonint_region(image, mask,
