@@ -1,27 +1,27 @@
 import os
-import nibabel as nib
-import numpy as np
-import pandas as pd
 from pathlib import Path
 from os.path import join, isdir
+from tqdm import tqdm
+import nibabel as nib
+import numpy as np
 
 from kits19cnn.io.resample import resample_patient
 
 class Preprocessor(object):
     """
-    Preprocessing:
+    Preprocesses the original dataset (interpolated).
+    Procedures:
         * clipping (ROI)
-        * crop images to the nonint region (percentile_005)
         * save as .npy array
             * imaging.npy
-            * segmentation.npy
-        * saves the crop coordinates in out_dir as "coords.csv"
+            * segmentation.npy (if with_masks)
         * resampling from `orig_spacing` to `target_spacing`
+            currently uses spacing reported in the #1 solution
     """
     def __init__(self, in_dir, out_dir, cases=None,
                  orig_spacing=(3, 0.78162497, 0.78162497),
                  target_spacing=(3.22, 1.62, 1.62),
-                 clip_values=None, extract_nonint=False):
+                 clip_values=None, with_mask=False):
         """
         Attributes:
             in_dir (str): directory with the input data. Should be the kits19/data directory.
@@ -32,8 +32,9 @@ class Preprocessor(object):
             target_spacing (list/tuple): spacing to resample to
             clip_values (list, tuple): values you want to clip CT scans to.
                 Defaults to None for no clipping.
-            extract_nonint (bool): whether or not to extract the non-zero
-                regions for preprocessing
+            with_mask (bool): whether or not to preprocess with masks or no
+                masks. Applicable to preprocessing test set (no labels
+                available).
         """
         self.in_dir = in_dir
         self.out_dir = out_dir
@@ -41,15 +42,14 @@ class Preprocessor(object):
 
         self.orig_spacing = np.array(orig_spacing)
         self.target_spacing = np.array(target_spacing)
-        self.extract_nonint = extract_nonint
-
+        self.with_mask = with_mask
         self.cases = cases
         # automatically collecting all of the case folder names
         if self.cases is None:
             self.cases = [os.path.join(self.in_dir, case) \
                           for case in os.listdir(self.in_dir) \
                           if case.startswith("case")]
-            self.cases = sorted(self.cases)[:210]
+            self.cases = sorted(self.cases)
             assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
         # making directory if out_dir doesn't exist
         if not isdir(out_dir):
@@ -64,55 +64,35 @@ class Preprocessor(object):
         Returns:
             preprocessed input image and mask
         """
-        coords_dict = {"cases": [],
-                      "z_lb": [], "z_ub": [],
-                      "x_lb": [], "x_ub": [],
-                      "y_lb": [], "y_ub": [],
-                      "orig_z": [], "orig_x": [], "orig_y": [],
-                      }
         # Generating data and saving them recursively
-        for (i, case) in enumerate(self.cases):
-            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            image = nib.load(join(case, "imaging.nii.gz")).get_fdata()[None]
-            label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()[None]
-            try:
-                preprocessed_img, preprocessed_label, coords = self.preprocess(image, label)
-                orig_shape = image.shape # need this for inference
-                coords_dict = self.append_to_coords_dict(coords_dict, case, coords, orig_shape)
-            except ValueError:
-                preprocessed_img, preprocessed_label = self.preprocess(image, label)
+        for case in tqdm(self.cases):
+            x_path, y_path = join(case, "imaging.nii.gz"), join(case, "segmentation.nii.gz")
+            image = nib.load(x_path).get_fdata()[None]
+            label = nib.load(y_path).get_fdata()[None] if self.with_mask \
+                    else None
+            preprocessed_img, preprocessed_label = self.preprocess(image, label)
 
             self.save_imgs(preprocessed_img, preprocessed_label, case)
-        df = pd.DataFrame(coords_dict)
-        df.to_csv(join(self.out_dir, "coords.csv"))
-        print("Done!")
 
     def preprocess(self, image, mask):
         """
         Clipping, cropping, and resampling.
         Args:
             image: numpy array
-            mask: numpy array
+            mask: numpy array or None
         Returns:
             tuple of:
                 - preprocessed image
-                - preprocessed mask
-                - list of lists of coords
+                - preprocessed mask or None
         """
         if self.target_spacing is not None:
             image, mask = resample_patient(image, mask, self.orig_spacing,
                                            target_spacing=self.target_spacing)
         if self.clip_values is not None:
             image = np.clip(image, self.clip_values[0], self.clip_values[1])
-        if self.extract_nonint:
-            # coming in as (c, x, y, z), but extract_nonint_region needs
-            # only (x, y, z) so we squeeze
-            image, mask, coords = extract_nonint_region(image.squeeze(),
-                                                        mask.squeeze(),
-                                                        outside_value=self.clip_values[0])
-            return (image[None], mask[None], coords)
-        else:
-            return (image, mask)
+
+        mask = mask[None] if mask is not None else mask
+        return (image[None], mask)
 
     def save_imgs(self, image, mask, case):
         """
@@ -130,78 +110,7 @@ class Preprocessor(object):
         # checking to make sure that the output directories exist
         if not isdir(out_case_dir):
             os.mkdir(out_case_dir)
-            print("Created directory: {0}".format(out_case_dir))
 
         np.save(os.path.join(out_case_dir, "imaging.npy"), image)
-        np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
-        print("Saving: {0}".format(case))
-
-    def append_to_coords_dict(self, coords_dict, case, coords, orig_shape):
-        """
-        Simple function to append the coords and cases to the coords_dict.
-        Args:
-            coords_dict: dictionary containing all of the coordinates
-            case (str): case folder name
-            coords: list of [lower bound, upper bound]
-        Returns:
-            new coords_dict with the append coordinates
-        """
-        # case comes in as a filepath, so let's just get the case id
-        case = Path(case).name
-        # unpacking coords (list of lists of [lower bound, upper bound])
-        # lb = lower bound, ub = upper bound
-        z_lb, z_ub = coords[0]
-        x_lb, x_ub = coords[1]
-        y_lb, y_ub = coords[2]
-        orig_z, orig_x, orig_y = orig_shape
-        coords_dict["cases"].append(case)
-        coords_dict["z_lb"].append(z_lb), coords_dict["z_ub"].append(z_ub)
-        coords_dict["x_lb"].append(x_lb), coords_dict["x_ub"].append(x_ub)
-        coords_dict["y_lb"].append(y_lb), coords_dict["y_ub"].append(y_ub)
-        coords_dict["orig_z"].append(orig_z)
-        coords_dict["orig_x"].append(orig_x)
-        coords_dict["orig_y"].append(orig_y)
-
-        return coords_dict
-
-def extract_nonint_region(image, mask=None, outside_value=0):
-    """
-    Resizing image around a specified region (i.e. nonzero region)
-    Args:
-        image: shape (x, y, z)
-        mask: a segmentation labeled mask that is the same shaped as 'image' (optional; default: None)
-        outside_value: (optional; default: 0)
-    Returns:
-        the resized image
-        segmentation mask (when mask is not None)
-        a nested list of the mins and and maxes of each axis (when coords = True)
-    """
-    # Copyright 2017 Division of Medical Image Computing, German Cancer Research Center (DKFZ)
-    #
-    # Licensed under the Apache License, Version 2.0 (the "License");
-    # you may not use this file except in compliance with the License.
-    # You may obtain a copy of the License at
-    #
-    #     http://www.apache.org/licenses/LICENSE-2.0
-    #
-    # Unless required by applicable law or agreed to in writing, software
-    # distributed under the License is distributed on an "AS IS" BASIS,
-    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    # See the License for the specific language governing permissions and
-    # limitations under the License.
-    # ===================================================================================================
-    # Changes: Added the ability to return the cropping coordinates
-    pos_idx = np.where(image != outside_value)
-    # fetching all of the min/maxes for each axes
-    pos_x, pos_y, pos_z = pos_idx[1], pos_idx[2], pos_idx[0]
-    minZidx, maxZidx = int(np.min(pos_z)), int(np.max(pos_z)) + 1
-    minXidx, maxXidx = int(np.min(pos_x)), int(np.max(pos_x)) + 1
-    minYidx, maxYidx = int(np.min(pos_y)), int(np.max(pos_y)) + 1
-    # resize images
-    resizer = (slice(minZidx, maxZidx), slice(minXidx, maxXidx), slice(minYidx, maxYidx))
-    coord_list = [[minZidx, maxZidx], [minXidx, maxXidx], [minYidx, maxYidx]]
-    # returns cropped outputs with the bbox coordinates
-    if mask is not None:
-        return (image[resizer], mask[resizer], coord_list)
-    elif mask is None:
-        return (image[resizer], coord_list)
+        if mask is not None:
+            np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
