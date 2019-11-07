@@ -4,11 +4,12 @@ from abc import abstractmethod
 import os
 
 import torch
-from torch.data.utils import DataLoader
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
 from kits19cnn.io import TestVoxelDataset
 from kits19cnn.utils import softmax_helper
+from kits19cnn.models import Generic_UNet
 from utils import get_preprocessing
 
 class BaseInferenceExperiment(object):
@@ -132,7 +133,7 @@ class SegmentationInferenceExperiment(BaseInferenceExperiment):
         trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Total # of Params: {total}\nTrainable params: {trainable}")
 
-        return model
+        return model.cuda()
 
     def setup_3D_UNet_params(self, unet_kwargs):
         """
