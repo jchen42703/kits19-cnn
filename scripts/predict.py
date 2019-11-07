@@ -27,7 +27,7 @@ def main(config):
 
     print(f"Seed: {seed}\nMode: {mode}")
     pred = Predictor(in_dir=config["in_dir"], out_dir=config["out_dir"],
-                     cases=None, checkpoint_path=config["checkpoint_path"],
+                     checkpoint_path=config["checkpoint_path"],
                      model=exp.model, test_loader=exp.loaders["test"],
                      pred_3D_params=config["predict_3D_params"])
     pred.run_3D_predictions()
