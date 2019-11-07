@@ -81,7 +81,7 @@ class Evaluator(object):
         df = pd.DataFrame(metrics_dict)
         metrics_path = join(self.pred_dir, "results.csv")
         print(f"Saving {metrics_path}...")
-        df.to_csv(results_path)
+        df.to_csv(metrics_path)
 
     def load_masks_and_pred(self, case):
         """
@@ -126,7 +126,7 @@ class Evaluator(object):
         append_list = [case, fpr, orig_shape, prec, pred_supp, recall, supp,
                        tk_dice, tu_dice]
         sorted_keys = sorted(metrics_dict.keys())
-        assert len(append_list) == sorted_keys
+        assert len(append_list) == len(sorted_keys)
         # appending to each key's list
         for (key_, value_) in zip(sorted_keys, append_list):
             metrics_dict[key_].append(value_)
@@ -151,7 +151,7 @@ class Evaluator(object):
         Rounding all relevant metrics to three decimal places for cleanliness.
         """
         for key in list(metrics_dict.keys()):
-            if key in ["cases", "orig_shape", "support", "pred_support"]:
+            if key in ["cases", "pred_support"]:
                 pass
             else:
                 metrics_dict[key] = np.round(metrics_dict[key],
