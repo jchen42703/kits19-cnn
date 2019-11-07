@@ -1,4 +1,7 @@
+from pathlib import Path
+from os.path import join, isdir
 from tqdm import tqdm
+import os
 import numpy as np
 import inspect
 import nibabel as nib
@@ -11,8 +14,13 @@ class Predictor(object):
     Inference for a single model for every file in `cases` in `in_dir`.
     Predictions are saved in `out_dir`.
     """
-    def __init__(self, in_dir, out_dir, cases, checkpoint_path, model,
+    def __init__(self, in_dir, out_dir, checkpoint_path, model,
                  test_loader, pred_3D_params={"do_mirroring": True}):
+        self.in_dir = in_dir
+        self.out_dir = out_dir
+        if not isdir(self.out_dir):
+            os.mkdir(self.out_dir)
+            print(f"Created {self.out_dir}!")
         assert inspect.ismethod(model.predict_3D), \
                 "model must have the method `predict_3D`"
         self.model = load_weights_infer(checkpoint_path, model)
@@ -23,21 +31,24 @@ class Predictor(object):
         """
         Runs predictions on the dataset (specified in test_loader)
         """
-        for test_batch in tqdm(self.test_loader):
+        cases = self.test_loader.dataset.im_ids
+        assert len(cases) == len(self.test_loader)
+        for (test_batch, case) in tqdm(zip(self.test_loader, cases), total=len(cases)):
             test_x = torch.squeeze(test_batch[0], dim=0)
-            pred, act = self.model.predict_3D(test_x, **self.pred_3D_params)
+            pred, _, act, _ = self.model.predict_3D(test_x, **self.pred_3D_params)
             assert len(pred.shape) == 3
-            assert len(act.shape) == 4 # temp checks
+            assert len(act.shape) == 4
             ### possible place to threshold ROI size ###
-            self.save_pred(pred, act)
+            self.save_pred(pred, act, case)
 
-    def save_pred(pred, act):
+    def save_pred(self, pred, act, case):
         """
         Saves both prediction and activation maps in `out_dir` in the
         KiTS19 format.
         Args:
             pred (np.ndarray): shape (x, y, z)
             act (np.ndarray): shape (n_classes, x, y, z)
+            case: path to a case folder (an element of self.cases)
         Returns:
             None
         """
@@ -48,8 +59,8 @@ class Predictor(object):
         if not isdir(out_case_dir):
             os.mkdir(out_case_dir)
 
-        np.save(os.path.join(out_case_dir, "pred.npy"), image)
-        np.save(os.path.join(out_case_dir, "pred_act.npy"), mask)
+        np.save(join(out_case_dir, "pred.npy"), pred)
+        np.save(join(out_case_dir, "pred_act.npy"), act)
 
     def resample_predictions(self, orig_spacing, target_spacing,
                              resampled_preds_dir):
