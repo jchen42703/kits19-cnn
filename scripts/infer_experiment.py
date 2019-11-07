@@ -92,7 +92,7 @@ class BaseInferenceExperiment(object):
         # setting up the loaders
         b_size, num_workers = self.io_params["batch_size"], self.io_params["num_workers"]
         test_loader = DataLoader(self.test_dset, batch_size=b_size,
-                                  shuffle=True, num_workers=num_workers)
+                                  shuffle=False, num_workers=num_workers)
         return {"test": test_loader}
 
 class SegmentationInferenceExperiment(BaseInferenceExperiment):
