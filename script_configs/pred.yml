@@ -1,0 +1,48 @@
+  in_dir: /content/kits19_preprocessed
+  out_dir: /content/kits19_predictions
+  with_masks: True
+  checkpoint_path: /content/...
+
+  io_params:
+    test_size: 0.2
+    split_seed: 200
+    batch_size: 2
+    num_workers: 2
+    # aug_key: aug2
+    file_ending: .npy # nii.gz
+
+  model_params:
+    architecture: nnunet
+    nnunet:
+      input_channels: 1
+      base_num_features: 30
+      num_classes: 3
+      num_pool: 5
+      num_conv_per_stage: 2
+      feat_map_mul_on_downscale: 2
+      deep_supervision: False
+      convolutional_pooling: True
+      convolutional_upsampling: True
+      max_num_features: 320
+  # model_params:
+    # model: Generic_UNet
+    # checkpoint_path: /content/...
+    # models:
+    #   -
+    # checkpoint_paths:
+    #   -
+
+  predict_3D_params:
+    do_mirroring: True
+    num_repeats: 1
+    use_train_mode: False
+    batch_size: 2
+    mirror_axes: (0, 1, 2)
+    tiled: True
+    tile_in_z: True
+    step: 2
+    patch_size: (96, 160, 160)
+    regions_class_order: ~ #argmax
+    use_gaussian: False
+    pad_border_mode: edge
+    all_in_gpu: False
