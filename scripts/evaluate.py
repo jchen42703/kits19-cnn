@@ -1,4 +1,4 @@
-from kits19.inference import Evaluator
+from kits19cnn.inference import Evaluator
 
 def main(config):
     """
