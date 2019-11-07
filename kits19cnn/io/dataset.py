@@ -1,4 +1,4 @@
-import os
+from os.path import isfile, join
 import numpy as np
 import nibabel as nib
 
@@ -57,10 +57,54 @@ class VoxelDataset(Dataset):
             - x (np.ndarray): shape (1, d, h, w)
             - y (np.ndarray): same shape as x
         """
-        x_path = os.path.join(case_id, f"imaging{self.file_ending}")
-        y_path = os.path.join(case_id, f"segmentation{self.file_ending}")
+        x_path = join(case_id, f"imaging{self.file_ending}")
+        y_path = join(case_id, f"segmentation{self.file_ending}")
         if self.file_ending == ".npy":
             x, y = np.load(x_path), np.load(y_path)
         elif self.file_ending == ".nii.gz" or self.file_ending == ".nii":
             x, y = nib.load(x_path).get_fdata(), nib.load(y_path).get_fdata()
+        return (x[None], y[None])
+
+class TestVoxelDataset(VoxelDataset):
+    """
+    Same as VoxelDataset, but can handle when there are no masks (just returns
+    blank masks). This is a separate class to prevent lowkey errors with
+    blank masks--VoxelDataset explicitly fails when there are no masks.
+    """
+    def __init__(self, im_ids: np.array,
+                 transforms=None,
+                 preprocessing=None,
+                 file_ending=".npy"):
+        """
+        Attributes
+            im_ids (np.ndarray): of image names.
+            transforms (albumentations.augmentation): transforms to apply
+                before preprocessing. Defaults to HFlip and ToTensor
+            preprocessing: ops to perform after transforms, such as
+                z-score standardization. Defaults to None.
+            file_ending (str): one of ['.npy', '.nii', '.nii.gz']
+        """
+        super().__init__(im_ids=im_ids, transforms=transforms,
+                         preprocessing=preprocessing, file_ending=file_ending)
+
+    def load_volume(self, case_id):
+        """
+        Loads volume from either .npy or nifti files.
+        Args:
+            case_id: path to the case folder
+                i.e. /content/kits19/data/case_00001
+        Returns:
+            Tuple of:
+            - x (np.ndarray): shape (1, d, h, w)
+            - y (np.ndarray): same shape as x
+                if this does not exist, it's returned as a blank mask
+        """
+        x_path = join(case_id, f"imaging{self.file_ending}")
+        y_path = join(case_id, f"segmentation{self.file_ending}")
+        if self.file_ending == ".npy":
+            x = np.load(x_path)
+            y = np.load(y_path) if isfile(y_path) else np.zeros(x.shape)
+        elif self.file_ending == ".nii.gz" or self.file_ending == ".nii":
+            x = nib.load(x_path).get_fdata()
+            y = nib.load(y_path).get_fdata() if isfile(y_path) else np.zeros(x.shape)
         return (x[None], y[None])
