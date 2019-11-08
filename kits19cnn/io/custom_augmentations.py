@@ -152,5 +152,10 @@ def foreground_crop(data, seg=None, patch_size=128, margins=0,
         margins = dim * [margins]
     # centering the crop
     margins = [margins[d] - patch_size[d] // 2 for d in range(dim)]
-    return crop(data, seg, patch_size, margins=margins,
-                crop_type="roi", bbox_coords=bbox_coords)
+    reject = True
+    while reject:
+        cropped = crop(data, seg, patch_size, margins=margins,
+                       crop_type="roi", bbox_coords=bbox_coords)
+        if np.sum(cropped[1]) > 0:
+            reject = False
+    return cropped
