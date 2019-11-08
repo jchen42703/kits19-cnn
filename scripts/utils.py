@@ -83,7 +83,7 @@ def get_training_augmentation(augmentation_key="aug1"):
                                                   retain_stats=True,
                                                   p_per_sample=0.3),
                                 bg.BrightnessTransform(mu=101, sigma=76.9,
-                                                       p=0.3),
+                                                       p_per_sample=0.3),
                         ],
                      }
     train_transform = transform_dict[augmentation_key]
