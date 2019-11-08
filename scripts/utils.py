@@ -58,6 +58,33 @@ def get_training_augmentation(augmentation_key="aug1"):
                                                   retain_stats=True,
                                                   p_per_sample=0.3),
                         ],
+                      "aug3": [
+                                bg.SpatialTransform(patch_size=(96, 160, 160),
+                                                    patch_center_dist_from_border=(30, 30, 30),
+                                                    do_elastic_deform=True,
+                                                    alpha=(0., 900.),
+                                                    sigma=(9., 13.),
+                                                    do_rotation=True,
+                                                    angle_x=default_angle,
+                                                    angle_y=default_angle,
+                                                    angle_z=default_angle,
+                                                    do_scale=True,
+                                                    scale=(0.85, 1.25),
+                                                    border_mode_data="constant",
+                                                    order_data=3,
+                                                    random_crop=False,
+                                                    p_el_per_sample=0.2,
+                                                    p_scale_per_sample=0.2,
+                                                    p_rot_per_sample=0.2),
+                                bg.MirrorTransform(axes=(0, 1, 2)),
+                                bg.GammaTransform(gamma_range=(0.7, 1.5),
+                                                  invert_image=False,
+                                                  per_channel=True,
+                                                  retain_stats=True,
+                                                  p_per_sample=0.3),
+                                bg.BrightnessTransform(mu=101, sigma=76.9,
+                                                       p=0.3),
+                        ],
                      }
     train_transform = transform_dict[augmentation_key]
     return bg.Compose(train_transform)
@@ -72,7 +99,7 @@ def get_validation_augmentation(augmentation_key):
                         bg.RandomCropTransform(crop_size=(96, 160, 160))
                       ],
                       "aug3": [
-                        bg.CenterCropTransform(crop_size=(80, 160, 160))
+                        bg.RandomCropTransform(crop_size=(96, 160, 160))
                       ],
                      }
     test_transform = transform_dict[augmentation_key]
