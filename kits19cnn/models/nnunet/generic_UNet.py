@@ -146,8 +146,27 @@ class Upsample(nn.Module):
         self.size = size
 
     def forward(self, x):
-        return nn.functional.interpolate(x, size=self.size, scale_factor=self.scale_factor, mode=self.mode, align_corners=self.align_corners)
+        return nn.functional.interpolate(x, size=self.size,
+                                         scale_factor=self.scale_factor,
+                                         mode=self.mode,
+                                         align_corners=self.align_corners)
 
+class ClassificationHead(nn.Module):
+    def __init__(self, num_classes=3, input_features=320,
+                 final_nonlin=lambda x: x, conv_op=nn.Conv3d):
+        super().__init__()
+        if conv_op == nn.Conv2d:
+            self.final_pool = nn.AdaptiveAvgPool2d((1, 1))
+        elif conv_op == nn.Conv3d:
+            self.final_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
+        self.out_dense = nn.Linear(input_features, num_classes)
+        self.final_nonlin = final_nonlin
+
+    def forward(self, x):
+        pooled = self.final_pool(x)
+        # (b, max_num_features, 1, 1 (,1))
+        logits = self.out_dense(torch.flatten(pooled, start_dim=1))
+        return self.final_nonlin(logits)
 
 class Generic_UNet(SegmentationNetwork):
     DEFAULT_BATCH_SIZE_3D = 2
@@ -175,8 +194,10 @@ class Generic_UNet(SegmentationNetwork):
                  weightInitializer=InitWeights_He(1e-2),
                  pool_op_kernel_sizes=None,
                  conv_kernel_sizes=None,
-                 upscale_logits=False, convolutional_pooling=False, convolutional_upsampling=False,
-                 max_num_features=None):
+                 upscale_logits=False, convolutional_pooling=False,
+                 convolutional_upsampling=False,
+                 max_num_features=None,
+                 classification=False):
         """
         basically more flexible than v1, architecture is the same
         Does this look complicated? Nah bro. Functionality > usability
@@ -364,6 +385,17 @@ class Generic_UNet(SegmentationNetwork):
         if self.weightInitializer is not None:
             self.apply(self.weightInitializer)
             #self.apply(print_module_training_status)
+        self.classification = classification
+        if self.classification:
+            self.clf_head = ClassificationHead(num_classes=num_classes,
+                                               input_features=\
+                                               self.max_num_features,
+                                               final_nonlin=final_nonlin,
+                                               conv_op=conv_op)
+            print("The final classification layer assumes that the bottom",
+                  "context layer will have the max number features",
+                  f"({self.max_num_features}) as the number of input features.",
+                  "\nIf this is not true, please adjust `max_num_features`.")
 
     def forward(self, x):
         skips = []
@@ -375,6 +407,8 @@ class Generic_UNet(SegmentationNetwork):
                 x = self.td[d](x)
 
         x = self.conv_blocks_context[-1](x)
+        if self.classification:
+            clf_out = self.clf_head(x)
 
         for u in range(len(self.tu)):
             x = self.tu[u](x)
@@ -382,11 +416,21 @@ class Generic_UNet(SegmentationNetwork):
             x = self.conv_blocks_localization[u](x)
             seg_outputs.append(self.final_nonlin(self.seg_outputs[u](x)))
 
-        if self.do_ds:
-            return tuple([seg_outputs[-1]] + [i(j) for i, j in
-                                              zip(list(self.upscale_logits_ops)[::-1], seg_outputs[:-1][::-1])])
+        if self.classification:
+            # returns classification pred last
+            if self.do_ds:
+                ds_out = [seg_outputs[-1]] + [i(j) for i, j in
+                                                  zip(list(self.upscale_logits_ops)[::-1],
+                                                  seg_outputs[:-1][::-1])]
+                return tuple(ds_out + [clf_out,])
+            else:
+                return tuple([seg_outputs[-1], clf_out])
         else:
-            return seg_outputs[-1]
+            if self.do_ds:
+                return tuple([seg_outputs[-1],] + [i(j) for i, j in
+                                                  zip(list(self.upscale_logits_ops)[::-1], seg_outputs[:-1][::-1])])
+            else:
+                return seg_outputs[-1]
 
     @staticmethod
     def compute_approx_vram_consumption(patch_size, num_pool_per_axis, base_num_features, max_num_features,
