@@ -135,7 +135,7 @@ class ClfSegVoxelDataset(VoxelDataset):
             one_hot (np.ndarray): multi-label one hot encoded array
                 i.e. [0, 1, 0] or [1, 0, 1], etc.
         """
-        unique = np.unique(cropped_mask)
+        unique = np.unique(cropped_mask).astype(np.int32)
         one_hot = np.zeros(self.num_classes)
         one_hot[unique] = 1
         return one_hot
