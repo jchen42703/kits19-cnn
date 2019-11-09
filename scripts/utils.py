@@ -3,6 +3,7 @@ import random
 import numpy as np
 import batchgenerators.transforms as bg
 import torch
+from copy import deepcopy
 
 from kits19cnn.io import ROICropTransform
 
