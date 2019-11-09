@@ -1,4 +1,4 @@
-  mode: segmentation
+  mode: segmentation # classification # both
   logdir: /content/logs/segmentation/
   data_folder: /content/kits19/data
 
@@ -10,7 +10,12 @@
     aug_key: aug2
     file_ending: .nii
 
-  loss: bce_dice_loss
+  criterion_params:
+    loss: ce_dice_loss
+    # for clf_seg
+    # seg_loss: ce_dice_loss
+    # clf_loss: bce_dice_loss
+
   num_epochs: 17
   fp16: False
 
@@ -27,6 +32,7 @@
       convolutional_pooling: True
       convolutional_upsampling: True
       max_num_features: 320
+      classification: False #True
 
   opt_params:
     opt: sgd
