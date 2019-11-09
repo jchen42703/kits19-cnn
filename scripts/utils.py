@@ -57,6 +57,9 @@ def get_training_augmentation(augmentation_key="aug1"):
     transform_dict["aug4"] = [ROICropTransform(crop_size=(96, 160, 160)),] + \
                               transform_dict["aug3"]
 
+    transform_dict["aug5"] = [ROICropTransform(crop_size=(96, 160, 160),
+                              p_per_sample=1),] + transform_dict["aug3"]
+
     train_transform = transform_dict[augmentation_key]
     return bg.Compose(train_transform)
 
@@ -75,6 +78,9 @@ def get_validation_augmentation(augmentation_key):
                         bg.RandomCropTransform(crop_size=(96, 160, 160))
                       ],
                       "aug4": [
+                        bg.RandomCropTransform(crop_size=(96, 160, 160))
+                      ],
+                      "aug5": [
                         bg.RandomCropTransform(crop_size=(96, 160, 160))
                       ],
                      }
