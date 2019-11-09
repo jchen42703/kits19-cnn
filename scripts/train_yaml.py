@@ -1,7 +1,8 @@
 from catalyst.dl.runner import SupervisedRunner
 
 from utils import seed_everything
-from experiment import TrainSegExperimentFromConfig
+from experiment import TrainSegExperimentFromConfig, \
+                       TrainClfSegExperimentFromConfig
 
 def main(config):
     """
@@ -17,12 +18,14 @@ def main(config):
     seed = config["io_params"]["split_seed"]
     seed_everything(seed)
     mode = config["mode"].lower()
-    assert mode in ["classification", "segmentation"], \
-        "The `mode` must be one of ['classification', 'segmentation']."
+    assert mode in ["classification", "segmentation", "both"], \
+        "The `mode` must be one of ['classification', 'segmentation', 'both']."
     if mode == "classification":
         raise NotImplementedError
     elif mode == "segmentation":
         exp = TrainSegExperimentFromConfig(config)
+    elif mode == "both":
+        exp = TrainClfSegExperimentFromConfig(config)
 
     print(f"Seed: {seed}\nMode: {mode}")
 
