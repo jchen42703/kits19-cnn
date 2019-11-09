@@ -1,5 +1,6 @@
 import os
 import torch
+import segmentation_models_pytorch as smp
 
 from glob import glob
 from abc import abstractmethod
@@ -15,7 +16,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, \
                                      CosineAnnealingWarmRestarts, CyclicLR
 
 from kits19cnn.models import Generic_UNet
-from kits19cnn.io import VoxelDataset
+from kits19cnn.io import ClfSegVoxelDataset, VoxelDataset
 from kits19cnn.loss_functions import DC_and_CE_loss
 from utils import get_preprocessing, get_training_augmentation, \
                   get_validation_augmentation, seed_everything
@@ -69,6 +70,7 @@ class TrainExperiment(object):
         self.io_params = config["io_params"]
         self.opt_params = config["opt_params"]
         self.cb_params = config["callback_params"]
+        self.criterion_params = config["criterion_params"]
         # initializing the experiment components
         self.case_list = self.setup_im_ids()
         train_ids, val_ids, _ = self.get_split()
@@ -170,7 +172,7 @@ class TrainExperiment(object):
         return scheduler
 
     def get_criterion(self):
-        loss_name = self.config["loss"].lower()
+        loss_name = self.criterion_params["loss"].lower()
         if loss_name == "bce_dice_loss":
             raise NotImplementedError
             # criterion = smp.utils.losses.BCEDiceLoss(eps=1.)
@@ -263,6 +265,60 @@ class TrainSegExperimentFromConfig(TrainExperiment):
         print(f"Total # of Params: {total}\nTrainable params: {trainable}")
 
         return model
+
+class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
+    """
+    Stores the main parts of a classification+segmentation experiment:
+    - df split
+    - datasets
+    - loaders
+    - model
+    - optimizer
+    - lr_scheduler
+    - criterion
+    - callbacks
+    """
+    def __init__(self, config: dict):
+        """
+        Args:
+            config (dict): from `train_seg_yaml.py`
+        """
+        self.model_params = config["model_params"]
+        super().__init__(config=config)
+
+    def get_datasets(self, train_ids, valid_ids):
+        """
+        Creates and returns the train and validation datasets.
+        """
+        # preparing transforms
+        train_aug = get_training_augmentation(self.io_params["aug_key"])
+        val_aug = get_validation_augmentation(self.io_params["aug_key"])
+        # creating the datasets
+        preprocess = get_preprocessing()
+        train_dataset = ClfSegVoxelDataset(im_ids=train_ids,
+                                           transforms=train_aug,
+                                           preprocessing=preprocess,
+                                           mode="both", num_classes=3)
+        valid_dataset = ClfSegVoxelDataset(im_ids=valid_ids,
+                                           transforms=val_aug,
+                                           preprocessing=preprocess,
+                                           mode="both", num_classes=3)
+        return (train_dataset, valid_dataset)
+
+    def get_criterion(self):
+        loss_dict = {
+            "bce_dice_loss": smp.utils.losses.BCEDiceLoss(eps=1.),
+            "bce": torch.nn.BCEWithLogitsLoss(),
+            "ce_dice_loss": DC_and_CE_loss(soft_dice_kwargs={}, ce_kwargs={}),
+        }
+
+        seg_loss_name = self.criterion_params["seg_loss"].lower()
+        clf_loss_name = self.criterion_params["clf_loss"].lower()
+
+        criterion_dict = {seg_loss_name: loss_dict[seg_loss_name],
+                          clf_loss_name: loss_dict[clf_loss_name]}
+        print(f"Criterion: {criterion_dict}")
+        return criterion_dict
 
 def load_weights_train(checkpoint_path, model):
     """
