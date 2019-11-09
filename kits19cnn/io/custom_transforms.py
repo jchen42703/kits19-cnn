@@ -18,7 +18,6 @@ class ROICropTransform(AbstractTransform):
         self.margins = margins
         self.crop_size = crop_size
         self.p_per_sample = p_per_sample
-        print(f"Cropping the foreground with a probabily: {p_per_sample}")
 
     def __call__(self, **data_dict):
         """
