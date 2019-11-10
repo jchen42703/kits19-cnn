@@ -21,7 +21,12 @@ def load_weights_infer(checkpoint_path, model):
     except:
         # anything else
         state_dict = torch.load(checkpoint_path, map_location="cpu")
-    model.load_state_dict(state_dict, strict=True)
+    try:
+        model.load_state_dict(state_dict, strict=True)
+    except:
+        # for clf + seg for seg only prediction
+        print(f"Non-strict loading of weights from {checkpoint_path}")
+        model.load_state_dict(state_dict, strict=False)
     model.eval()
     return model
 
