@@ -24,12 +24,14 @@ def main(config):
         raise NotImplementedError
     elif mode == "segmentation":
         exp = TrainSegExperimentFromConfig(config)
+        output_key = "logits"
     elif mode == "both":
         exp = TrainClfSegExperimentFromConfig(config)
+        output_key = ["seg_logits", "clf_logits"]
 
     print(f"Seed: {seed}\nMode: {mode}")
 
-    runner = SupervisedRunner()
+    runner = SupervisedRunner(output_key=output_key)
 
     runner.train(
         model=exp.model,
