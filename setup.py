@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='kits19cnn',
-      version='0.01.1',
+      version='0.01.2',
       description='Submission for the KiTS 2019 Challenge',
       url='https://github.com/jchen42703/kits19-cnn',
       author='Joseph Chen, Benson Jin',
@@ -23,6 +23,7 @@ setup(name='kits19cnn',
             "torchvision>=0.4.0",
             "catalyst",
             "pytorch_toolbelt",
+            "segmentation_models_pytorch",
       ],
       classifiers=[
           'Development Status :: 3 - Alpha',
