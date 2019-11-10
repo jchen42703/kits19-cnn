@@ -4,6 +4,7 @@ from os.path import join, isdir
 from tqdm import tqdm
 import nibabel as nib
 import numpy as np
+import pandas as pd
 
 from kits19cnn.io.resample import resample_patient
 
@@ -114,3 +115,57 @@ class Preprocessor(object):
         np.save(os.path.join(out_case_dir, "imaging.npy"), image)
         if mask is not None:
             np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
+
+    def save_dir_as_2d(self):
+        """
+        Takes preprocessed 3D numpy arrays and saves them as slices
+        in the same directory.
+        """
+        self.pos_slice_dict = {}
+        # Generating data and saving them recursively
+        for case in tqdm(self.cases):
+            image = np.load(join(case, "imaging.npy"))
+            label = np.load(join(case, "segmentation.npy"))
+            self.save_3d_as_2d(preprocessed_img, preprocessed_label, case)
+        df = pd.DataFrame(self.pos_slice_dict)
+        save_path = join(self.out_dir, "slice_indices.csv")
+        print(f"Saving the positive slice dictionary at {save_path}.")
+        df.to_csv(save_path)
+
+    def save_3d_as_2d(self, image, mask, case):
+        """
+        Saves an image and mask pair as .npy arrays in the
+        KiTS19 file structure
+        Args:
+            image: numpy array
+            mask: numpy array
+            case: path to a case folder (each element of self.cases)
+        """
+        # saving the generated dataset
+        # output dir in KiTS19 format
+        # extracting the raw case folder name
+        case = Path(case).name
+        out_case_dir = join(self.out_dir, case)
+        # checking to make sure that the output directories exist
+        if not isdir(out_case_dir):
+            os.mkdir(out_case_dir)
+
+        # iterates through all slices and saves them individually as 2D arrays
+        fg_indices = []
+        for slice_idx in range(mask.shape[0]):
+            label_slice = mask[slice_idx]
+            # appending fg slice indices
+            if (label_slice > 0).any():
+                fg_indices.append(slice_idx)
+            # naming convention: {type of slice}_{case}_{slice_idx}
+            slice_idx_str = str(slice_idx)
+            # adding 0s to slice_idx until it reaches 3 digits,
+            # so sorting files is easier when stacking
+            while len(slice_idx_str) < 3:
+                slice_idx_str = "0"+slice_idx_str
+            np.save(join(out_case_dir, f"imaging_{slice_idx_str}.npy"),
+                    image[slice_idx])
+            np.save(join(out_case_dir, f"segmentation_{slice_idx_str}.npy"),
+                    label_slice)
+        # {case1: [idx1, idx2,...], case2: ...}
+        self.pos_slice_dict[case] = fg_indices
