@@ -1,6 +1,5 @@
 import os
 import torch
-import segmentation_models_pytorch as smp
 
 from glob import glob
 from abc import abstractmethod
@@ -17,7 +16,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, \
 
 from kits19cnn.models import Generic_UNet
 from kits19cnn.io import ClfSegVoxelDataset, VoxelDataset
-from kits19cnn.loss_functions import DC_and_CE_loss
+from kits19cnn.loss_functions import DC_and_CE_loss, BCEDiceLoss
 from utils import get_preprocessing, get_training_augmentation, \
                   get_validation_augmentation, seed_everything
 
@@ -307,7 +306,7 @@ class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
 
     def get_criterion(self):
         loss_dict = {
-            "bce_dice_loss": smp.utils.losses.BCEDiceLoss(eps=1.),
+            "bce_dice_loss": BCEDiceLoss(eps=1.),
             "bce": torch.nn.BCEWithLogitsLoss(),
             "ce_dice_loss": DC_and_CE_loss(soft_dice_kwargs={}, ce_kwargs={}),
         }
@@ -324,16 +323,18 @@ class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
         from catalyst.dl.callbacks import CriterionAggregatorCallback, \
                                           CriterionCallback
 
-        loss_keys = ["ce_dice_loss", "bce_dice_loss"]
         callbacks_list = [
                           CriterionCallback(prefix="seg_loss",
                                             input_key="seg_targets",
-                                            criterion_key=loss_keys[0]),
+                                            output_key="seg_logits",
+                                            criterion_key="ce_dice_loss"),
                           CriterionCallback(prefix="clf_loss",
                                             input_key="clf_targets",
-                                            criterion_key=loss_keys[1]),
+                                            output_key="clf_logits",
+                                            criterion_key="bce_dice_loss"),
                           CriterionAggregatorCallback(prefix="loss",
-                                                      loss_keys=loss_keys),
+                                                      loss_keys=\
+                                                      ["seg_loss", "clf_loss"]),
                           EarlyStoppingCallback(**self.cb_params["earlystop"]),
                           ]
 
