@@ -327,8 +327,10 @@ class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
         loss_keys = ["ce_dice_loss", "bce_dice_loss"]
         callbacks_list = [
                           CriterionCallback(prefix="seg_loss",
+                                            input_key="seg_targets"
                                             criterion_key=loss_keys[0]),
                           CriterionCallback(prefix="clf_loss",
+                                            input_key="clf_targets",
                                             criterion_key=loss_keys[1]),
                           CriterionAggregatorCallback(prefix="loss",
                                                       loss_keys=loss_keys),

@@ -119,7 +119,7 @@ class ClfSegVoxelDataset(VoxelDataset):
             y = torch.squeeze(y, dim=0)
 
         if self.mode == "both":
-            return (x, (y, y_clf))
+            return {"features": x, "seg_targets": y, "clf_targets": y_clf}
         elif self.mode == "clf_only":
             return (x, y_clf)
         elif self.mode == "seg_only":
