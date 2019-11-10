@@ -320,6 +320,41 @@ class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
         print(f"Criterion: {criterion_dict}")
         return criterion_dict
 
+    def get_callbacks(self):
+        from catalyst.dl.callbacks import CriterionAggregatorCallback, \
+                                          CriterionCallback
+
+        loss_keys = ["ce_dice_loss", "bce_dice_loss"]
+        callbacks_list = [
+                          CriterionCallback(prefix="seg_loss",
+                                            criterion_key=loss_keys[0]),
+                          CriterionCallback(prefix="clf_loss",
+                                            criterion_key=loss_keys[1]),
+                          CriterionAggregatorCallback(prefix="loss",
+                                                      loss_keys=loss_keys),
+                          EarlyStoppingCallback(**self.cb_params["earlystop"]),
+                          ]
+
+        ckpoint_params = self.cb_params["checkpoint_params"]
+        if ckpoint_params["checkpoint_path"] != None: # hacky way to say no checkpoint callback but eh what the heck
+            mode = ckpoint_params["mode"].lower()
+            if mode == "full":
+                print("Stateful loading...")
+                ckpoint_p = Path(ckpoint_params["checkpoint_path"])
+                fname = ckpoint_p.name
+                # everything in the path besides the base file name
+                resume_dir = str(ckpoint_p.parents[0])
+                print(f"Loading {fname} from {resume_dir}. \
+                      \nCheckpoints will also be saved in {resume_dir}.")
+                # adding the checkpoint callback
+                callbacks_list = callbacks_list + [CheckpointCallback(resume=fname,
+                                                                      resume_dir=resume_dir),]
+            elif mode == "model_only":
+                print("Loading weights into model...")
+                self.model = load_weights_train(ckpoint_params["checkpoint_path"], self.model)
+        print(f"Callbacks: {callbacks_list}")
+        return callbacks_list
+
 def load_weights_train(checkpoint_path, model):
     """
     Loads weights from a checkpoint and into training.
