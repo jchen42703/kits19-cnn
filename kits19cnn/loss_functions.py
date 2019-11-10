@@ -13,9 +13,23 @@
 #    limitations under the License.
 import torch
 from torch import nn
+from segmentation_models_pytorch.utils.losses import DiceLoss
 
 from kits19cnn.utils import softmax_helper, sum_tensor
 
+class BCEDiceLoss(DiceLoss):
+    __name__ = 'bce_dice_loss'
+
+    def __init__(self, eps=1e-7, activation='sigmoid'):
+        super().__init__(eps, activation)
+        self.bce = nn.BCEWithLogitsLoss(reduction='mean')
+
+    def forward(self, y_pr, y_gt):
+        y_pr = y_pr.float()
+        y_gt = y_gt.float()
+        dice = super().forward(y_pr, y_gt)
+        bce = self.bce(y_pr, y_gt)
+        return dice + bce
 
 class CrossentropyND(nn.CrossEntropyLoss):
     """
