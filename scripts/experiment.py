@@ -101,7 +101,8 @@ class TrainExperiment(object):
         Creates a list of all paths to case folders for the dataset split
         """
         search_path = os.path.join(self.config["data_folder"], "*/")
-        case_list = sorted(glob(search_path))[:210]
+        case_list = sorted(glob(search_path))
+        case_list = case_list[:210] if len(case_list) >= 210 else case_list
         return case_list
 
     def get_split(self):
