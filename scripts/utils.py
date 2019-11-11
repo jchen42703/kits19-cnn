@@ -63,15 +63,15 @@ def get_training_augmentation(augmentation_key="aug1"):
     # roicrop, spatial, mirror, gamma, brightness
     aug5_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
     aug5_spatial_kwargs["patch_center_dist_from_border"] = None
-    aug5_spatial_kwargs["border_val_seg"] = -1
+    aug5_spatial_kwargs["border_cval_seg"] = -1
     aug5_spatial_kwargs["border_cval_data"] = 0
     aug5_spatial_kwargs["order_seg"] = 1
     crop_kwargs = {"pad_kwargs_seg": {"constant_values": -1}}
-    new_transforms = [ROICropTransform(crop_size=(96, 160, 160)
+    new_transforms = [ROICropTransform(crop_size=(96, 160, 160),
                                        crop_kwargs=crop_kwargs),
                       bg.SpatialTransform(**aug5_spatial_kwargs),]
     # RemoveLabelTransform added to preprocessing
-    transform_dict["aug5"] = transform_dict["aug4"]
+    transform_dict["aug5"] = new_transforms + transform_dict["aug4"][2:]
 
     train_transform = transform_dict[augmentation_key]
     return bg.Compose(train_transform)
@@ -80,6 +80,7 @@ def get_validation_augmentation(augmentation_key):
     """
     Validation data augmentations. Usually, just cropping.
     """
+    crop_kwargs = {"pad_kwargs_seg": {"constant_values": -1}}
     transform_dict = {
                       "aug1": [
                         bg.RandomCropTransform(crop_size=(80, 160, 160))
@@ -94,7 +95,8 @@ def get_validation_augmentation(augmentation_key):
                         bg.RandomCropTransform(crop_size=(96, 160, 160))
                       ],
                       "aug5": [
-                        ROICropTransform(crop_size=(96, 160, 160))
+                        ROICropTransform(crop_size=(96, 160, 160),
+                                         crop_kwargs=crop_kwargs)
                       ],
                      }
     test_transform = transform_dict[augmentation_key]
@@ -112,11 +114,12 @@ def get_preprocessing():
     """
     bgct = bg.color_transforms
     bgsnt = bg.sample_normalization_transforms
+    bgut = bg.utility_transforms
     _transform = [
         bgct.ClipValueRange(min=-79, max=304),
         bgsnt.MeanStdNormalizationTransform(mean=101, std=76.9,
                                             per_channel=False),
-        bg.RemoveLabelTransform(-1, 0),
+        bgut.RemoveLabelTransform(-1, 0),
         bg.NumpyToTensor(),
     ]
     return bg.Compose(_transform)
