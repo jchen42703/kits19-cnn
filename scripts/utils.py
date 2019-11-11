@@ -50,15 +50,28 @@ def get_training_augmentation(augmentation_key="aug1"):
     new_transforms = [bg.SpatialTransform(**aug3_spatial_kwargs),
                       bg.BrightnessTransform(mu=101, sigma=76.9,
                                              p_per_sample=0.3),]
+    # spatial, mirror, gamma, brightness
     transform_dict["aug3"] = [new_transforms[0]] + transform_dict["aug1"][1:] \
                              + [new_transforms[1]]
 
     # aug4
+    # roicrop, spatial, mirror, gamma, brightness
     transform_dict["aug4"] = [ROICropTransform(crop_size=(96, 160, 160)),] + \
                               transform_dict["aug3"]
 
-    transform_dict["aug5"] = [ROICropTransform(crop_size=(96, 160, 160),
-                              p_per_sample=1),] + transform_dict["aug3"]
+    # aug5
+    # roicrop, spatial, mirror, gamma, brightness
+    aug5_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
+    aug5_spatial_kwargs["patch_center_dist_from_border"] = None
+    aug5_spatial_kwargs["border_val_seg"] = -1
+    aug5_spatial_kwargs["border_cval_data"] = 0
+    aug5_spatial_kwargs["order_seg"] = 1
+    crop_kwargs = {"pad_kwargs_seg": {"constant_values": -1}}
+    new_transforms = [ROICropTransform(crop_size=(96, 160, 160)
+                                       crop_kwargs=crop_kwargs),
+                      bg.SpatialTransform(**aug5_spatial_kwargs),]
+    # RemoveLabelTransform added to preprocessing
+    transform_dict["aug5"] = transform_dict["aug4"]
 
     train_transform = transform_dict[augmentation_key]
     return bg.Compose(train_transform)
@@ -81,7 +94,7 @@ def get_validation_augmentation(augmentation_key):
                         bg.RandomCropTransform(crop_size=(96, 160, 160))
                       ],
                       "aug5": [
-                        bg.RandomCropTransform(crop_size=(96, 160, 160))
+                        ROICropTransform(crop_size=(96, 160, 160))
                       ],
                      }
     test_transform = transform_dict[augmentation_key]
@@ -103,6 +116,7 @@ def get_preprocessing():
         bgct.ClipValueRange(min=-79, max=304),
         bgsnt.MeanStdNormalizationTransform(mean=101, std=76.9,
                                             per_channel=False),
+        bg.RemoveLabelTransform(-1, 0),
         bg.NumpyToTensor(),
     ]
     return bg.Compose(_transform)
