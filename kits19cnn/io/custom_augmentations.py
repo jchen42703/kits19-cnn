@@ -2,18 +2,25 @@ import numpy as np
 from batchgenerators.augmentations.crop_and_pad_augmentations import get_lbs_for_center_crop, \
                                                                      get_lbs_for_random_crop
 
-def get_bbox_coords_fg(mask):
+def get_bbox_coords_fg(mask, fg_classes=[1, 2]):
     """
     Creates bounding box coordinates for foreground
     Arg:
         mask (np.ndarray): shape (x, y, z)
+        fg_classes (list-like/arr-like): foreground classes to sample from
+            (sampling is done uniformly across all classes)
     Returns:
         coords (list): [[x_min, x_max], [y_min, y_max], [z_min, z_max]]
     """
     # squeeze to remove the channels dim if necessary
     if len(mask.shape) > 3:
         mask = mask.squeeze(axis=0)
-    all_coords = np.where(mask > 0)
+    if fg_classes is None:
+        classes = np.unique(mask)
+        sampled_fg_class = np.random.choice(classes[np.where(classes > 0)])
+    else:
+        sampled_fg_class = np.random.choice(fg_classes)
+    all_coords = np.where(mask == sampled_fg_class)
     min_, max_ = np.min(all_coords, axis=1), np.max(all_coords, axis=1)+1
     coords = list(zip(min_, max_))
     return coords
