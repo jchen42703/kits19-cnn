@@ -131,7 +131,7 @@ def crop(data, seg=None, crop_size=128, margins=(0, 0, 0), crop_type="center",
     return data_return, seg_return
 
 def foreground_crop(data, seg=None, patch_size=128, margins=0,
-                    bbox_coords=None):
+                    bbox_coords=None, crop_kwargs={}):
     """
     Crops a region around the foreground
     Args:
@@ -155,7 +155,17 @@ def foreground_crop(data, seg=None, patch_size=128, margins=0,
     reject = True
     while reject:
         cropped = crop(data, seg, patch_size, margins=margins,
-                       crop_type="roi", bbox_coords=bbox_coords)
+                       crop_type="roi", bbox_coords=bbox_coords,
+                       **crop_kwargs)
         if np.sum(cropped[1]) > 0:
             reject = False
     return cropped
+
+def center_crop(data, crop_size, seg=None, crop_kwargs={}):
+    """
+    same as:
+    batchgenerators.augmentations.crop_and_pad_augmentations.center_crop, but
+    now can specify crop kwargs bc I need the constant value to be (-1).
+    """
+    return crop(data, seg, crop_size, margins=0, crop_type="center",
+                **crop_kwargs)
