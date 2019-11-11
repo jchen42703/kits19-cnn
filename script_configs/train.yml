@@ -5,10 +5,10 @@
   io_params:
     test_size: 0.2
     split_seed: 200
-    batch_size: 13
+    batch_size: 2
     num_workers: 2
     aug_key: aug2
-    file_ending: .nii
+    file_ending: .npy
 
   criterion_params:
     loss: ce_dice_loss
@@ -33,7 +33,9 @@
       convolutional_upsampling: True
       max_num_features: 320
       classification: False #True
-
+      dropout_op_kwargs:
+        p: 0
+        inplace: True
   opt_params:
     opt: sgd
     lr: 0.0001
@@ -44,7 +46,7 @@
         patience: 30 #2
         mode: min
         verbose: True
-        threshold: 1e-3
+        threshold: 0.001
         threshold_mode: abs
       # cosineannealing:
       #   T_max: 17
@@ -63,7 +65,7 @@
     #   threshold: 0.5
     #   activation: Softmax
     earlystop:
-      patience: 5
+      patience: 60
       min_delta: 0.001
     # accuracy:
     #   threshold: 0.5
