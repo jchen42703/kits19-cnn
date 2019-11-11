@@ -180,7 +180,10 @@ class TrainExperiment(object):
             criterion = torch.nn.BCEWithLogitsLoss()
         elif loss_name == "ce_dice_loss":
             # for softmax
-            criterion = DC_and_CE_loss(soft_dice_kwargs={}, ce_kwargs={})
+            soft_dice_kwargs = {"batch_dice": True, "smooth": 1e-5,
+                                "do_bg": False, "square": False}
+            criterion = DC_and_CE_loss(soft_dice_kwargs=soft_dice_kwargs,
+                                       ce_kwargs={})
         print(f"Criterion: {criterion}")
 
         return criterion
