@@ -17,7 +17,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, \
 from kits19cnn.models import Generic_UNet
 from kits19cnn.io import ClfSegVoxelDataset, VoxelDataset
 from kits19cnn.loss_functions import DC_and_CE_loss, BCEDiceLoss
-from utils import get_preprocessing, get_training_augmentation, \
+from .utils import get_preprocessing, get_training_augmentation, \
                   get_validation_augmentation, seed_everything
 
 class TrainExperiment(object):
