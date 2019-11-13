@@ -2,6 +2,7 @@ from catalyst.dl.runner import SupervisedRunner
 
 from kits19cnn.experiments import TrainSegExperimentFromConfig, \
                                   TrainClfSegExperimentFromConfig, \
+                                  TrainSeg2dExperimentFromConfig, \
                                   seed_everything
 
 def main(config):
@@ -23,7 +24,10 @@ def main(config):
     if mode == "classification":
         raise NotImplementedError
     elif mode == "segmentation":
-        exp = TrainSegExperimentFromConfig(config)
+        if config["dim"] == 2:
+            exp = TrainSeg2dExperimentFromConfig(config)
+        elif config["dim"] == 3:
+            exp = TrainSegExperimentFromConfig(config)
         output_key = "logits"
     elif mode == "both":
         exp = TrainClfSegExperimentFromConfig(config)
