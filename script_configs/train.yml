@@ -1,6 +1,7 @@
   mode: segmentation # classification # both
+  dim: 3 # 2
   logdir: /content/logs/segmentation/
-  data_folder: /content/kits19/data
+  data_folder: /content/kits_preprocessed/ #/content/kits19/data
 
   io_params:
     test_size: 0.2
@@ -9,6 +10,8 @@
     num_workers: 2
     aug_key: aug2
     file_ending: .npy
+    # slice_indices_path: /content/kits_preprocessed/slice_indices.csv # 2D
+    # p_pos_per_sample: 0.33 # 2D
 
   criterion_params:
     loss: ce_dice_loss
@@ -16,7 +19,7 @@
     # seg_loss: ce_dice_loss
     # clf_loss: bce_dice_loss
 
-  num_epochs: 17
+  num_epochs: 85
   fp16: False
 
   model_params:
@@ -36,6 +39,14 @@
       dropout_op_kwargs:
         p: 0
         inplace: True
+    ## 2D ONLY
+    # encoder: resnet34
+    # unet_smp:
+    #   attention_type: ~ # scse
+    #   decoder_use_batchnorm: True # inplace for InplaceABN
+    # fpn_smp:
+    #   dropout: 0.2
+
   opt_params:
     opt: sgd
     lr: 0.0001
