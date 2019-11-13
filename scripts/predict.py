@@ -1,7 +1,8 @@
 from catalyst.dl.runner import SupervisedRunner
 
 from kits19cnn.inference import Predictor
-from kits19cnn.experiments import SegmentationInferenceExperiment,
+from kits19cnn.experiments import SegmentationInferenceExperiment, \
+                                  Segmentation2dInferenceExperiment, \
                                   seed_everything
 
 def main(config):
@@ -17,13 +18,17 @@ def main(config):
     # setting up the train/val split with filenames
     seed = config["io_params"]["split_seed"]
     seed_everything(seed)
+    dim = len(config["predict_3D_params"]["patch_size"])
     mode = config["mode"].lower()
     assert mode in ["classification", "segmentation"], \
         "The `mode` must be one of ['classification', 'segmentation']."
     if mode == "classification":
         raise NotImplementedError
     elif mode == "segmentation":
-        exp = SegmentationInferenceExperiment(config)
+        if dim == 2:
+            exp = Segmentation2dInferenceExperiment(config)
+        elif dim == 3:
+            exp = SegmentationInferenceExperiment(config)
 
     print(f"Seed: {seed}\nMode: {mode}")
     pred = Predictor(out_dir=config["out_dir"],
