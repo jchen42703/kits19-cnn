@@ -25,13 +25,13 @@
       convolutional_pooling: True
       convolutional_upsampling: True
       max_num_features: 320
-  # model_params:
-    # model: Generic_UNet
-    # checkpoint_path: /content/...
-    # models:
-    #   -
-    # checkpoint_paths:
-    #   -
+    # # 2D ONLY
+    # encoder: resnet34
+    # unet_smp:
+    #   attention_type: ~ # scse
+    #   decoder_use_batchnorm: True # inplace for InplaceABN
+    # fpn_smp:
+    #   dropout: 0.2
 
   predict_3D_params:
     do_mirroring: True
