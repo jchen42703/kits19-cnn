@@ -1,8 +1,8 @@
 from catalyst.dl.runner import SupervisedRunner
 
 from kits19cnn.inference import Predictor
-from utils import seed_everything
-from infer_experiment import SegmentationInferenceExperiment
+from kits19cnn.experiments import SegmentationInferenceExperiment,
+                                  seed_everything
 
 def main(config):
     """
@@ -26,7 +26,7 @@ def main(config):
         exp = SegmentationInferenceExperiment(config)
 
     print(f"Seed: {seed}\nMode: {mode}")
-    pred = Predictor(in_dir=config["in_dir"], out_dir=config["out_dir"],
+    pred = Predictor(out_dir=config["out_dir"],
                      checkpoint_path=config["checkpoint_path"],
                      model=exp.model, test_loader=exp.loaders["test"],
                      pred_3D_params=config["predict_3D_params"])
