@@ -1,8 +1,8 @@
 from catalyst.dl.runner import SupervisedRunner
 
-from utils import seed_everything
-from experiment import TrainSegExperimentFromConfig, \
-                       TrainClfSegExperimentFromConfig
+from kits19cnn.experiments import TrainSegExperimentFromConfig, \
+                                  TrainClfSegExperimentFromConfig, \
+                                  seed_everything
 
 def main(config):
     """
