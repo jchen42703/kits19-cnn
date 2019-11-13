@@ -143,7 +143,10 @@ class Evaluator(object):
             else:
                 # axis=0 will make it so that each sub-axis of orig_shape and
                 # support will be averaged
-                metrics_dict[key].append(np.mean(metrics_dict[key], axis=0))
+                try:
+                    metrics_dict[key].append(np.mean(metrics_dict[key], axis=0))
+                except:
+                    metrics_dict[key].append("N/A")
         return metrics_dict
 
     def round_all(self, metrics_dict):
