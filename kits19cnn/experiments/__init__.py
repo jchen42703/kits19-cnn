@@ -4,3 +4,4 @@ from .train import TrainSegExperimentFromConfig, \
                    TrainClfSegExperimentFromConfig
 from .train_2d import TrainSeg2dExperimentFromConfig
 from .infer import SegmentationInferenceExperiment
+from .infer_2d import Segmentation2dInferenceExperiment
