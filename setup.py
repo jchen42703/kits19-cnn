@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='kits19cnn',
-      version='0.01.3',
+      version='0.01.4',
       description='Submission for the KiTS 2019 Challenge',
       url='https://github.com/jchen42703/kits19-cnn',
       author='Joseph Chen, Benson Jin',
