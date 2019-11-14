@@ -1,4 +1,5 @@
 import segmentation_models_pytorch as smp
+import torch
 
 from kits19cnn.utils import softmax_helper
 from kits19cnn.models import Generic_UNet, wrap_smp_model
