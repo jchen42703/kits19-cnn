@@ -4,7 +4,7 @@ from os.path import join, isdir
 from tqdm import tqdm
 import nibabel as nib
 import numpy as np
-import pandas as pd
+import json
 
 from kits19cnn.io.resample import resample_patient
 
@@ -128,10 +128,10 @@ class Preprocessor(object):
             image = np.load(join(case, "imaging.npy"))
             label = np.load(join(case, "segmentation.npy"))
             self.save_3d_as_2d(image, label, case)
-        df = pd.DataFrame.from_dict(self.pos_slice_dict, orient="index")
-        save_path = join(self.out_dir, "slice_indices.csv")
+        save_path = join(self.out_dir, "slice_indices.json")
         print(f"Saving the positive slice dictionary at {save_path}.")
-        df.to_csv(save_path)
+        with open(save_path, "w") as fp:
+            json.dump(self.pos_slice_dict, fp)
 
     def save_3d_as_2d(self, image, mask, case):
         """

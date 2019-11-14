@@ -10,7 +10,7 @@
     num_workers: 2
     aug_key: aug2
     file_ending: .npy
-    # slice_indices_path: /content/kits_preprocessed/slice_indices.csv # 2D
+    # slice_indices_path: /content/kits_preprocessed/slice_indices.json # 2D
     # p_pos_per_sample: 0.33 # 2D
 
   criterion_params:

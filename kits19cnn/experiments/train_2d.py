@@ -1,4 +1,4 @@
-import pandas as pd
+import json
 import segmentation_models_pytorch as smp
 
 from kits19cnn.io import SliceDataset
@@ -35,7 +35,8 @@ class TrainSeg2dExperimentFromConfig(TrainExperiment):
         train_aug = get_training_augmentation(self.io_params["aug_key"])
         val_aug = get_validation_augmentation(self.io_params["aug_key"])
         # creating the datasets
-        pos_slice_dict = pd.read_csv(self.io_params["slice_indices_path"]).to_dict()
+        with open(self.io_params["slice_indices_path"], "r") as fp:
+            pos_slice_dict = json.load(fp)
         p_pos_per_sample = self.io_params["p_pos_per_sample"]
 
         train_dataset = SliceDataset(im_ids=train_ids,
