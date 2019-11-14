@@ -72,6 +72,13 @@ def get_training_augmentation(augmentation_key="aug1"):
                       bg.SpatialTransform(**aug5_spatial_kwargs),]
     # RemoveLabelTransform added to preprocessing
     transform_dict["aug5"] = new_transforms + transform_dict["aug4"][2:]
+    # 2D Transforms
+    # roicrop, spatial, mirror, gamma, brightness
+    aug6_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
+    aug6_spatial_kwargs["patch_size"] = (160, 160)
+    transforms_2d = [bg.SpatialTransform(**aug6_spatial_kwargs),
+                     bg.MirrorTransform(axes=(0, 1)),]
+    transform_dict["aug6"] = transforms_2d +  transform_dict["aug3"][2:]
 
     train_transform = transform_dict[augmentation_key]
     return bg.Compose(train_transform)
