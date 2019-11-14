@@ -1,3 +1,4 @@
+import os
 from os.path import join
 from pathlib import Path
 import numpy as np
@@ -12,7 +13,6 @@ class SliceDataset(Dataset):
                  pos_slice_dict: dict,
                  transforms=None,
                  preprocessing=None,
-                 file_ending: str = ".npy",
                  p_pos_per_sample: float = 0.33):
         """
         Reads from a directory of 2D slice numpy arrays and samples positive
@@ -26,20 +26,15 @@ class SliceDataset(Dataset):
                 before preprocessing. Defaults to HFlip and ToTensor
             preprocessing: ops to perform after transforms, such as
                 z-score standardization. Defaults to None.
-            file_ending (str): one of ['.npy', '.nii', '.nii.gz']
             p_pos_per_sample (float): probability at which to sample slices
                 that contain foreground classes.
         """
         self.im_ids = im_ids
-        if isinstance(pos_slice_dict, pd.DataFrame):
-            self.pos_slice_dict = pos_slice_dict.to_dict()
-        else:
-            self.pos_slice_dict = pos_slice_dict
+        self.pos_slice_dict = pos_slice_dict
         self.transforms = transforms
         self.preprocessing = preprocessing
-        self.file_ending = file_ending
         self.p_pos_per_sample = p_pos_per_sample
-        print(f"Using the {file_ending} files...")
+        print(f"Assuming inputs are .npy files...")
 
     def __getitem__(self, idx):
         # loads data as a numpy arr and then adds the channel + batch size dimensions
