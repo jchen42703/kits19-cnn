@@ -4,7 +4,7 @@ from kits19cnn.utils import softmax_helper
 from kits19cnn.models import Generic_UNet, wrap_smp_model
 from .utils import get_preprocessing
 from kits19cnn.io import TestVoxelDataset
-from .inference import BaseInferenceExperiment
+from .infer import BaseInferenceExperiment
 
 class Segmentation2dInferenceExperiment(BaseInferenceExperiment):
     """
