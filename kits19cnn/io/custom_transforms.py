@@ -33,10 +33,11 @@ class ROICropTransform(AbstractTransform):
 
             data, seg = foreground_crop(data, seg, patch_size=self.crop_size,
                                         margins=self.margins,
-                                        bbox_coords=coords, **self.crop_kwargs)
+                                        bbox_coords=coords,
+                                        crop_kwargs=self.crop_kwargs)
         else:
             data, seg = center_crop(data, self.crop_size, seg,
-                                    **self.crop_kwargs)
+                                    crop_kwargs=self.crop_kwargs)
 
         data_dict[self.data_key] = data
         if seg is not None:
