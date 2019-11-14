@@ -75,7 +75,7 @@ def get_training_augmentation(augmentation_key="aug1"):
     # 2D Transforms
     # roicrop, spatial, mirror, gamma, brightness
     aug6_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
-    aug6_spatial_kwargs["patch_size"] = (160, 160)
+    aug6_spatial_kwargs["patch_size"] = (192, 192)
     transforms_2d = [bg.SpatialTransform(**aug6_spatial_kwargs),
                      bg.MirrorTransform(axes=(0, 1)),]
     transform_dict["aug6"] = transforms_2d +  transform_dict["aug3"][2:]
@@ -104,6 +104,9 @@ def get_validation_augmentation(augmentation_key):
                       "aug5": [
                         ROICropTransform(crop_size=(96, 160, 160),
                                          crop_kwargs=crop_kwargs)
+                      ],
+                      "aug6": [
+                        bg.RandomCropTransform(crop_size=(192, 192))
                       ],
                      }
     test_transform = transform_dict[augmentation_key]
