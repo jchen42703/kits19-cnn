@@ -112,15 +112,15 @@ def get_validation_augmentation(augmentation_key):
     test_transform = transform_dict[augmentation_key]
     return bg.Compose(test_transform)
 
-def get_preprocessing():
-    """Construct preprocessing transform
+def get_preprocessing(rgb: bool = False):
+    """
+    Construct preprocessing transform
 
     Args:
-        preprocessing_fn (callbale): data normalization function
-            (can be specific for each pretrained neural network)
+        rgb (bool): Whether or not to return the input with three channels
+            or just single (grayscale)
     Return:
         transform: albumentations.Compose
-
     """
     bgct = bg.color_transforms
     bgsnt = bg.sample_normalization_transforms
@@ -132,6 +132,9 @@ def get_preprocessing():
         bgut.RemoveLabelTransform(-1, 0),
         bg.NumpyToTensor(),
     ]
+    if rgb:
+        # insert right before converting to a torch tensor
+        _transform.insert(-2, RepeatChannelsTransform(num_repeats=3))
     return bg.Compose(_transform)
 
 def seed_everything(seed=42):
