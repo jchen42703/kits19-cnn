@@ -124,10 +124,11 @@ class Preprocessor(object):
         self.pos_slice_dict = {}
         # Generating data and saving them recursively
         for case in tqdm(self.cases):
+            # assumes the .npy files have shape: (n_channels, h, w)
             image = np.load(join(case, "imaging.npy"))
             label = np.load(join(case, "segmentation.npy"))
-            self.save_3d_as_2d(preprocessed_img, preprocessed_label, case)
-        df = pd.DataFrame(self.pos_slice_dict)
+            self.save_3d_as_2d(image, label, case)
+        df = pd.DataFrame.from_dict(self.pos_slice_dict, orient="index")
         save_path = join(self.out_dir, "slice_indices.csv")
         print(f"Saving the positive slice dictionary at {save_path}.")
         df.to_csv(save_path)
@@ -152,8 +153,8 @@ class Preprocessor(object):
 
         # iterates through all slices and saves them individually as 2D arrays
         fg_indices = []
-        for slice_idx in range(mask.shape[0]):
-            label_slice = mask[slice_idx]
+        for slice_idx in range(mask.shape[1]):
+            label_slice = mask[:, slice_idx]
             # appending fg slice indices
             if (label_slice > 0).any():
                 fg_indices.append(slice_idx)
@@ -164,7 +165,7 @@ class Preprocessor(object):
             while len(slice_idx_str) < 3:
                 slice_idx_str = "0"+slice_idx_str
             np.save(join(out_case_dir, f"imaging_{slice_idx_str}.npy"),
-                    image[slice_idx])
+                    image[:, slice_idx])
             np.save(join(out_case_dir, f"segmentation_{slice_idx_str}.npy"),
                     label_slice)
         # {case1: [idx1, idx2,...], case2: ...}
