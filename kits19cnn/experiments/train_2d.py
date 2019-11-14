@@ -1,4 +1,5 @@
 import json
+import torch
 import segmentation_models_pytorch as smp
 
 from kits19cnn.io import SliceDataset
