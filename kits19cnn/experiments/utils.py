@@ -63,12 +63,8 @@ def get_training_augmentation(augmentation_key="aug1"):
     # roicrop, spatial, mirror, gamma, brightness
     aug5_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
     aug5_spatial_kwargs["patch_center_dist_from_border"] = None
-    aug5_spatial_kwargs["border_cval_seg"] = -1
     aug5_spatial_kwargs["border_cval_data"] = 0
-    aug5_spatial_kwargs["order_seg"] = 1
-    crop_kwargs = {"pad_kwargs_seg": {"constant_values": -1}}
-    new_transforms = [ROICropTransform(crop_size=(96, 160, 160),
-                                       crop_kwargs=crop_kwargs),
+    new_transforms = [ROICropTransform(crop_size=(96, 160, 160)),
                       bg.SpatialTransform(**aug5_spatial_kwargs),]
     # RemoveLabelTransform added to preprocessing
     transform_dict["aug5"] = new_transforms + transform_dict["aug4"][2:]
@@ -87,7 +83,6 @@ def get_validation_augmentation(augmentation_key):
     """
     Validation data augmentations. Usually, just cropping.
     """
-    crop_kwargs = {"pad_kwargs_seg": {"constant_values": -1}}
     transform_dict = {
                       "aug1": [
                         bg.RandomCropTransform(crop_size=(80, 160, 160))
@@ -102,8 +97,7 @@ def get_validation_augmentation(augmentation_key):
                         bg.RandomCropTransform(crop_size=(96, 160, 160))
                       ],
                       "aug5": [
-                        ROICropTransform(crop_size=(96, 160, 160),
-                                         crop_kwargs=crop_kwargs)
+                        ROICropTransform(crop_size=(96, 160, 160))
                       ],
                       "aug6": [
                         bg.RandomCropTransform(crop_size=(192, 192))

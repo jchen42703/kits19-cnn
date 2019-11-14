@@ -30,7 +30,7 @@ def get_lowres_axis(new_spacing):
 
 def resample_patient(data, seg, original_spacing, target_spacing, order_data=3,
                      order_seg=0, force_separate_z=False,
-                     cval_data=0, cval_seg=-1, order_z_data=0, order_z_seg=0):
+                     cval_data=0, cval_seg=0, order_z_data=0, order_z_seg=0):
     """
     :param cval_seg:
     :param cval_data:
