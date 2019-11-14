@@ -43,3 +43,21 @@ class ROICropTransform(AbstractTransform):
             data_dict[self.label_key] = seg
 
         return data_dict
+
+class RepeatChannelsTransform(AbstractTransform):
+    """
+    Repeats across the channels dimension `num_tiles` number of times.
+    """
+    def __init__(self, num_tiles=3, data_key="data"):
+        self.num_tiles = num_tiles
+        self.data_key = data_key
+
+    def __call__(self, **data_dict):
+        """
+        Repeats across the channels dimension (axis=1).
+        """
+        data = data_dict.get(self.data_key)
+
+        data_dict[self.data_key] = np.repeat(data, self.num_tiles, axis=1)
+
+        return data_dict
