@@ -23,10 +23,11 @@ class Segmentation2dInferenceExperiment(BaseInferenceExperiment):
         """
         Creates and returns the test dataset.
         """
+        use_rgb = "smp" in self.model_params["architecture"]
         # creating the datasets
         test_dataset = TestVoxelDataset(im_ids=test_ids,
                                         transforms=None,
-                                        preprocessing=get_preprocessing(),
+                                        preprocessing=get_preprocessing(use_rgb),
                                         file_ending=self.io_params["file_ending"])
         return test_dataset
 

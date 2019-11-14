@@ -35,6 +35,7 @@ class TrainSeg2dExperimentFromConfig(TrainExperiment):
         # preparing transforms
         train_aug = get_training_augmentation(self.io_params["aug_key"])
         val_aug = get_validation_augmentation(self.io_params["aug_key"])
+        use_rgb = "smp" in self.model_params["architecture"]
         # creating the datasets
         with open(self.io_params["slice_indices_path"], "r") as fp:
             pos_slice_dict = json.load(fp)
@@ -43,12 +44,12 @@ class TrainSeg2dExperimentFromConfig(TrainExperiment):
         train_dataset = SliceDataset(im_ids=train_ids,
                                      pos_slice_dict=pos_slice_dict,
                                      transforms=train_aug,
-                                     preprocessing=get_preprocessing(),
+                                     preprocessing=get_preprocessing(use_rgb),
                                      p_pos_per_sample=p_pos_per_sample)
         valid_dataset = SliceDataset(im_ids=valid_ids,
                                      pos_slice_dict=pos_slice_dict,
                                      transforms=val_aug,
-                                     preprocessing=get_preprocessing(),
+                                     preprocessing=get_preprocessing(use_rgb),
                                      p_pos_per_sample=p_pos_per_sample)
 
         return (train_dataset, valid_dataset)
