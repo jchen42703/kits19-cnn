@@ -5,7 +5,7 @@ import batchgenerators.transforms as bg
 import torch
 from copy import deepcopy
 
-from kits19cnn.io import ROICropTransform
+from kits19cnn.io import ROICropTransform, RepeatChannelsTransform
 
 def get_training_augmentation(augmentation_key="aug1"):
     default_angle = (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi)
