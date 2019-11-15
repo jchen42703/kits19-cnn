@@ -35,6 +35,7 @@ class SliceDataset(Dataset):
         self.preprocessing = preprocessing
         self.p_pos_per_sample = p_pos_per_sample
         print(f"Assuming inputs are .npy files...")
+        self.check_fg_idx_per_class()
 
     def __getitem__(self, idx):
         # loads data as a numpy arr and then adds the channel + batch size dimensions
@@ -96,7 +97,12 @@ class SliceDataset(Dataset):
         """
         case_raw = Path(case_fpath).name
         # finding random positive class index
-        random_pos_coord = np.random.choice(self.pos_slice_dict[case_raw])
+        if self.fg_idx_per_class:
+            sampled_class = np.random.choice(self.fg_classes)
+            slice_indices = self.pos_slice_dict[case_raw][sampled_class]
+            random_pos_coord = np.random.choice(slice_indices)
+        else:
+            random_pos_coord = np.random.choice(self.pos_slice_dict[case_raw])
         return random_pos_coord
 
     def get_rand_slice_idx(self, case_fpath):
@@ -110,3 +116,15 @@ class SliceDataset(Dataset):
         _slice_files = [file for file in os.listdir(case_fpath)
                         if file.startswith("imaging_")]
         return np.random.randint(0, len(_slice_files))
+
+    def check_fg_idx_per_class(self):
+        """
+        checks the first key: value pair of self.pos_slice_dict
+        If dict -> fg_idx_per_class, if list: not fg_idx_per_class
+        fg_idx_per_class -> uniformly sample per class v. sample all fg idx
+        """
+        dummy_key = list(self.pos_slice_dict.keys())[0]
+        dummy_value = self.pos_slice_dict[dummy_key]
+        self.fg_idx_per_class = True if isinstance(dummy_value, dict) else False
+        if self.fg_idx_per_class:
+            self.fg_classes = list(dummy_value.keys())
