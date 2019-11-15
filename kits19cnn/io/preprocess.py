@@ -22,7 +22,8 @@ class Preprocessor(object):
     def __init__(self, in_dir, out_dir, cases=None,
                  orig_spacing=(3, 0.78162497, 0.78162497),
                  target_spacing=(3.22, 1.62, 1.62),
-                 clip_values=None, with_mask=False):
+                 clip_values=None, with_mask=False, fg_idx_per_class=False,
+                 fg_classes=[1, 2]):
         """
         Attributes:
             in_dir (str): directory with the input data. Should be the kits19/data directory.
@@ -36,6 +37,10 @@ class Preprocessor(object):
             with_mask (bool): whether or not to preprocess with masks or no
                 masks. Applicable to preprocessing test set (no labels
                 available).
+            fg_idx_per_class (bool): whether or not to gather the foreground
+                indices as a general list or as a dictionary:
+                    {0.0: [...], 1.0: [....], etc.}
+            fg_classes (list): of foreground class indices
         """
         self.in_dir = in_dir
         self.out_dir = out_dir
@@ -44,6 +49,8 @@ class Preprocessor(object):
         self.orig_spacing = np.array(orig_spacing)
         self.target_spacing = np.array(target_spacing)
         self.with_mask = with_mask
+        self.fg_idx_per_class = fg_idx_per_class
+        self.fg_classes = fg_classes
         self.cases = cases
         # automatically collecting all of the case folder names
         if self.cases is None:
@@ -152,12 +159,16 @@ class Preprocessor(object):
             os.mkdir(out_case_dir)
 
         # iterates through all slices and saves them individually as 2D arrays
-        fg_indices = []
+        fg_indices = {} if self.fg_idx_per_class else []
         for slice_idx in range(mask.shape[1]):
             label_slice = mask[:, slice_idx]
             # appending fg slice indices
-            if (label_slice > 0).any():
-                fg_indices.append(slice_idx)
+            if self.fg_idx_per_class:
+                for idx in self.fg_classes:
+                    fg_indices[idx].append(slice_idx)
+            elif not self.fg_idx_per_class:
+                if (label_slice > 0).any():
+                    fg_indices.append(slice_idx)
             # naming convention: {type of slice}_{case}_{slice_idx}
             slice_idx_str = str(slice_idx)
             # adding 0s to slice_idx until it reaches 3 digits,
