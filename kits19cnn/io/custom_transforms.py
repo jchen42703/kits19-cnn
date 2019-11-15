@@ -49,8 +49,8 @@ class RepeatChannelsTransform(AbstractTransform):
     """
     Repeats across the channels dimension `num_tiles` number of times.
     """
-    def __init__(self, num_tiles=3, data_key="data"):
-        self.num_tiles = num_tiles
+    def __init__(self, num_repeats=3, data_key="data"):
+        self.num_repeats = num_repeats
         self.data_key = data_key
 
     def __call__(self, **data_dict):
@@ -59,6 +59,6 @@ class RepeatChannelsTransform(AbstractTransform):
         """
         data = data_dict.get(self.data_key)
 
-        data_dict[self.data_key] = np.repeat(data, self.num_tiles, axis=1)
+        data_dict[self.data_key] = np.repeat(data, self.num_repeats, axis=1)
 
         return data_dict
