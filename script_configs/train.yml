@@ -1,7 +1,12 @@
   mode: segmentation # classification # both
   dim: 3 # 2
-  logdir: /content/logs/segmentation/
   data_folder: /content/kits_preprocessed/ #/content/kits19/data
+
+  runner_params:
+    logdir: /content/logs/segmentation/
+    num_epochs: 85
+    fp16: False
+    verbose: True
 
   io_params:
     test_size: 0.2
@@ -10,8 +15,6 @@
     num_workers: 2
     aug_key: aug2
     file_ending: .npy
-    num_epochs: 85
-    fp16: False
     # slice_indices_path: /content/kits_preprocessed/slice_indices.json # 2D
     # p_pos_per_sample: 0.33 # 2D
 
