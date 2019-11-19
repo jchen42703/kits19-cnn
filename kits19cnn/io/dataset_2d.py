@@ -12,7 +12,7 @@ class SliceDataset(Dataset):
                  transforms=None,
                  preprocessing=None,
                  p_pos_per_sample: float = 0.33,
-                 mode: str = "seg",
+                 mode: str = "segmentation",
                  num_classes: int = 3):
         """
         Reads from a directory of 2D slice numpy arrays and samples positive
@@ -38,8 +38,8 @@ class SliceDataset(Dataset):
         self.p_pos_per_sample = p_pos_per_sample
         print(f"Assuming inputs are .npy files...")
         self.check_fg_idx_per_class()
-        assert mode in ["seg", "clf", "both"], \
-            "mode must be one of ['seg', 'clf', 'both']"
+        assert mode in ["segmentation", "classification", "both"], \
+            "mode must be one of ['segmentation', 'classification', 'both']"
         self.mode = mode
         self.num_classes = num_classes
 
@@ -49,8 +49,8 @@ class SliceDataset(Dataset):
         x, y = self.load_slices(case_id)
 
         if self.transforms:
-            x = x[None] if len(x.shape) == 4 else x
-            y = y[None] if len(y.shape) == 4 else y
+            x = x[None] if len(x.shape) == 3 else x
+            y = y[None] if len(y.shape) == 3 else y
             # batchgenerators requires shape: (b, c, ...)
             data_dict = self.transforms(**{"data": x, "seg": y})
             x, y = data_dict["data"], data_dict["seg"]
