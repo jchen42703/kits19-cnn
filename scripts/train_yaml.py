@@ -1,7 +1,7 @@
 from catalyst.dl.runner import SupervisedRunner
 
 from kits19cnn.experiments import TrainSegExperiment, TrainClfSegExperiment3D, \
-                                  TrainSegExperiment2D, TrainClfSegExperiment2D \
+                                  TrainSegExperiment2D, TrainClfSegExperiment2D, \
                                   seed_everything
 
 def main(config):
