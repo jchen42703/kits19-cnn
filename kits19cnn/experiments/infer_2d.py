@@ -7,7 +7,7 @@ from .utils import get_preprocessing
 from kits19cnn.io import TestVoxelDataset
 from .infer import BaseInferenceExperiment
 
-class Segmentation2dInferenceExperiment(BaseInferenceExperiment):
+class SegmentationInferenceExperiment2D(BaseInferenceExperiment):
     """
     Inference Experiment to support prediction experiments
     """
