@@ -1,8 +1,7 @@
 from catalyst.dl.runner import SupervisedRunner
 
-from kits19cnn.experiments import TrainSegExperiment, \
-                                  TrainClfSegExperiment3D, \
-                                  TrainSegExperiment2D, \
+from kits19cnn.experiments import TrainSegExperiment, TrainClfSegExperiment3D, \
+                                  TrainSegExperiment2D, TrainClfSegExperiment2D \
                                   seed_everything
 
 def main(config):
@@ -31,7 +30,7 @@ def main(config):
         output_key = "logits"
     elif mode == "both":
         if config["dim"] == 2:
-            raise NotImplementedError
+            exp = TrainClfSegExperiment2D(config)
         elif config["dim"] == 3:
             exp = TrainClfSegExperiment3D(config)
         output_key = ["seg_logits", "clf_logits"]
@@ -40,18 +39,9 @@ def main(config):
 
     runner = SupervisedRunner(output_key=output_key)
 
-    runner.train(
-        model=exp.model,
-        criterion=exp.criterion,
-        optimizer=exp.opt,
-        scheduler=exp.lr_scheduler,
-        loaders=exp.loaders,
-        callbacks=exp.cb_list,
-        logdir=config["logdir"],
-        num_epochs=config["num_epochs"],
-        verbose=True,
-        fp16=config["fp16"]
-    )
+    runner.train(model=exp.model, criterion=exp.criterion, optimizer=exp.opt,
+                 scheduler=exp.lr_scheduler, loaders=exp.loaders,
+                 callbacks=exp.cb_list, **config["runner_params"])
 
 if __name__ == "__main__":
     import yaml
