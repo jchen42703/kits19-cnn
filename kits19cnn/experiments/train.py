@@ -156,7 +156,7 @@ class TrainExperiment(object):
         scheduler_name = sched_params["scheduler"]
         scheduler_args = sched_params[scheduler_name]
         scheduler_cls = torch.optim.lr_scheduler.__dict__[scheduler_name]
-        scheduler = scheduler_cls(optimizer=optimizer, **scheduler_args)
+        scheduler = scheduler_cls(optimizer=self.opt, **scheduler_args)
         print(f"LR Scheduler: {scheduler}")
         return scheduler
 
