@@ -10,17 +10,31 @@
     num_workers: 2
     aug_key: aug2
     file_ending: .npy
+    num_epochs: 85
+    fp16: False
     # slice_indices_path: /content/kits_preprocessed/slice_indices.json # 2D
     # p_pos_per_sample: 0.33 # 2D
 
   criterion_params:
     loss: ce_dice_loss
+    ce_dice_loss:
+      soft_dice_kwargs:
+        batch_dice: True
+        smooth: 1e-5
+        do_bg: False
+        square: False
+      ce_kwargs: {}
     # for clf_seg
     # seg_loss: ce_dice_loss
+      # soft_dice_kwargs:
+      #   batch_dice: True
+      #   smooth: 1e-5
+      #   do_bg: False
+      #   square: False
+      # ce_kwargs: {}
     # clf_loss: bce_dice_loss
-
-  num_epochs: 85
-  fp16: False
+      # eps: 1e-7
+      # activation: sigmoid
 
   model_params:
     architecture: nnunet
@@ -48,27 +62,20 @@
     #   dropout: 0.2
 
   opt_params:
-    opt: sgd
-    lr: 0.0001
+    opt: SGD
+    SGD:
+      lr: 0.0001
+      momentum: 0.9
+      weight_decay: 0.0001
     scheduler_params:
-      scheduler: plateau
-      plateau:
+      scheduler: ReduceLROnPlateau
+      ReduceLROnPlateau:
         factor: 0.15
         patience: 30 #2
         mode: min
         verbose: True
         threshold: 0.001
         threshold_mode: abs
-      # cosineannealing:
-      #   T_max: 17
-      # cosineannealingwr:
-      #   T_0: 7
-      #   T_mult: 2
-      # clr:
-      #   base_lr: 0.0001
-      #   max_lr: 0.001
-      #   step_size_up: 494
-      #   mode: exp_range
 
   callback_params:
     # ppvtprf1:
