@@ -8,7 +8,7 @@ from .utils import get_training_augmentation, get_validation_augmentation, \
                    get_preprocessing
 from .train import TrainExperiment
 
-class TrainSeg2dExperimentFromConfig(TrainExperiment):
+class TrainSegExperiment2D(TrainExperiment):
     """
     Stores the main parts of a segmentation experiment:
     - df split
