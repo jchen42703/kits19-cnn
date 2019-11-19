@@ -1,7 +1,6 @@
 from .utils import get_training_augmentation, get_validation_augmentation, \
                    get_preprocessing, seed_everything
-from .train import TrainSegExperimentFromConfig, \
-                   TrainClfSegExperimentFromConfig
-from .train_2d import TrainSeg2dExperimentFromConfig
+from .train_3d import TrainSegExperiment, TrainClfSegExperiment3D
+from .train_2d import TrainSegExperiment2D
 from .infer import SegmentationInferenceExperiment
-from .infer_2d import Segmentation2dInferenceExperiment
+from .infer_2d import SegmentationInferenceExperiment2D

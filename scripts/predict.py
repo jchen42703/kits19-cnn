@@ -2,7 +2,7 @@ from catalyst.dl.runner import SupervisedRunner
 
 from kits19cnn.inference import Predictor
 from kits19cnn.experiments import SegmentationInferenceExperiment, \
-                                  Segmentation2dInferenceExperiment, \
+                                  SegmentationInferenceExperiment2D, \
                                   seed_everything
 
 def main(config):
@@ -26,7 +26,7 @@ def main(config):
         raise NotImplementedError
     elif mode == "segmentation":
         if dim == 2:
-            exp = Segmentation2dInferenceExperiment(config)
+            exp = SegmentationInferenceExperiment2D(config)
         elif dim == 3:
             exp = SegmentationInferenceExperiment(config)
 

@@ -1,8 +1,8 @@
 from catalyst.dl.runner import SupervisedRunner
 
-from kits19cnn.experiments import TrainSegExperimentFromConfig, \
-                                  TrainClfSegExperimentFromConfig, \
-                                  TrainSeg2dExperimentFromConfig, \
+from kits19cnn.experiments import TrainSegExperiment, \
+                                  TrainClfSegExperiment3D, \
+                                  TrainSegExperiment2D, \
                                   seed_everything
 
 def main(config):
@@ -25,12 +25,15 @@ def main(config):
         raise NotImplementedError
     elif mode == "segmentation":
         if config["dim"] == 2:
-            exp = TrainSeg2dExperimentFromConfig(config)
+            exp = TrainSegExperiment2D(config)
         elif config["dim"] == 3:
-            exp = TrainSegExperimentFromConfig(config)
+            exp = TrainSegExperiment(config)
         output_key = "logits"
     elif mode == "both":
-        exp = TrainClfSegExperimentFromConfig(config)
+        if config["dim"] == 2:
+            raise NotImplementedError
+        elif config["dim"] == 3:
+            exp = TrainClfSegExperiment3D(config)
         output_key = ["seg_logits", "clf_logits"]
 
     print(f"Seed: {seed}\nMode: {mode}")
