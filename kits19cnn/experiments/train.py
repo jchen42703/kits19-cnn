@@ -221,7 +221,7 @@ class TrainExperiment(object):
                                                 self.model)
         return callbacks_list
 
-class TrainClfSegExperimentFromConfig(TrainExperiment):
+class TrainClfSegExperiment(TrainExperiment):
     """
     Stores the main parts of a classification+segmentation experiment:
     - df split

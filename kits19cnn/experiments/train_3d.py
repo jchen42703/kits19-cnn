@@ -3,11 +3,11 @@ import torch
 from kits19cnn.models import Generic_UNet
 from kits19cnn.io import VoxelDataset, ClfSegVoxelDataset
 
-from .train import TrainExperiment, TrainClfSegExperimentFromConfig
+from .train import TrainExperiment, TrainClfSegExperiment
 from .utils import get_preprocessing, get_training_augmentation, \
                   get_validation_augmentation, seed_everything
 
-class TrainSegExperimentFromConfig(TrainExperiment):
+class TrainSegExperiment(TrainExperiment):
     """
     Stores the main parts of a segmentation experiment:
     - df split
@@ -63,7 +63,7 @@ class TrainSegExperimentFromConfig(TrainExperiment):
 
         return model
 
-class Train3DClfSegExperimentFromConfig(TrainClfSegExperimentFromConfig, TrainSegExperimentFromConfig):
+class TrainClfSegExperiment3D(TrainClfSegExperiment, TrainSegExperiment):
     """
     Stores the main parts of a classification+segmentation experiment:
     - df split
