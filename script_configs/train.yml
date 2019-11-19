@@ -23,20 +23,22 @@
     ce_dice_loss:
       soft_dice_kwargs:
         batch_dice: True
-        smooth: 1e-5
+        smooth: 0.00001 #1e-5
         do_bg: False
         square: False
       ce_kwargs: {}
     # for clf_seg
     # seg_loss: ce_dice_loss
+    # ce_dice_loss:
       # soft_dice_kwargs:
       #   batch_dice: True
-      #   smooth: 1e-5
+        # smooth: 0.00001 #1e-5
       #   do_bg: False
       #   square: False
       # ce_kwargs: {}
     # clf_loss: bce_dice_loss
-      # eps: 1e-7
+    # bce_dice_loss:
+      # eps: 0.0000001 # 1e-7
       # activation: sigmoid
 
   model_params:
