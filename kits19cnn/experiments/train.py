@@ -1,21 +1,14 @@
 import os
-import torch
-
 from glob import glob
 from abc import abstractmethod
 from pathlib import Path
 from catalyst.dl.callbacks import AccuracyCallback, EarlyStoppingCallback, \
                                   CheckpointCallback \
                                   # PrecisionRecallF1ScoreCallback
-from catalyst.dl.runner import SupervisedRunner
-
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, \
-                                     CosineAnnealingWarmRestarts, CyclicLR
+import torch
 
-from kits19cnn.models import Generic_UNet
-from kits19cnn.io import ClfSegVoxelDataset, VoxelDataset
 from kits19cnn.loss_functions import DC_and_CE_loss, BCEDiceLoss
 from .utils import get_preprocessing, get_training_augmentation, \
                   get_validation_augmentation, seed_everything
