@@ -135,7 +135,8 @@ class TrainClfSegExperiment2D(TrainExperiment2D, TrainClfSegExperiment):
         architecture = self.model_params["architecture"]
         if architecture.lower() == "nnunet":
             architecture_kwargs = self.model_params[architecture]
-            architecture_kwargs["norm_op"] = torch.nn.InstanceNorm2d
+            if self.io_params["batch_size"] < 10:
+                architecture_kwargs["norm_op"] = torch.nn.InstanceNorm2d
             architecture_kwargs["nonlin"] = torch.nn.ReLU
             architecture_kwargs["nonlin_kwargs"] = {"inplace": True}
             architecture_kwargs["final_nonlin"] = lambda x: x
