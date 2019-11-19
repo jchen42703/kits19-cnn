@@ -173,29 +173,44 @@ class TrainExperiment(object):
 
     def get_criterion(self):
         loss_name = self.criterion_params["loss"].lower()
-        if loss_name == "bce_dice_loss":
-            raise NotImplementedError
-            # criterion = smp.utils.losses.BCEDiceLoss(eps=1.)
-        elif loss_name == "bce":
-            criterion = torch.nn.BCEWithLogitsLoss()
-        elif loss_name == "ce_dice_loss":
-            # for softmax
-            soft_dice_kwargs = {"batch_dice": True, "smooth": 1e-5,
-                                "do_bg": False, "square": False}
-            criterion = DC_and_CE_loss(soft_dice_kwargs=soft_dice_kwargs,
-                                       ce_kwargs={})
-        print(f"Criterion: {criterion}")
+        loss_dict = {
+            "bce_dice_loss": BCEDiceLoss(eps=1.),
+            "bce": torch.nn.BCEWithLogitsLoss(),
+            "ce_dice_loss": DC_and_CE_loss(soft_dice_kwargs={}, ce_kwargs={}),
+        }
+        # re-initializing criterion with kwargs
+        loss_kwargs = self.criterion_params.get(loss_name)
+        loss_kwargs = {} if loss_kwargs is None else loss_kwargs
+
+        loss = loss_dict[loss_name]
+        loss.__init__(**loss_kwargs)
+        criterion_dict = {loss_name: loss}
+        print(f"Criterion: {criterion_dict}")
 
         return criterion
 
     def get_callbacks(self):
+        """
+        Creates a list of callbacks.
+        """
         callbacks_list = [#PrecisionRecallF1ScoreCallback(num_classes=3),#DiceCallback(),
                           # DiceCallback()
                           EarlyStoppingCallback(**self.cb_params["earlystop"]),
                           # AccuracyCallback(**self.cb_params["accuracy"]),
                           ]
+        callbacks_list = self.load_weights(callbacks_list)
+        return callbacks_list
+
+    def load_weights(self, callbacks_list):
+        """
+        Loads model weights and appends the CheckpointCallback if doing
+        stateful model loading. This doesn't add the CheckpointCallback if
+        it's 'model_only' loading bc SupervisedRunner adds it by default.
+        """
         ckpoint_params = self.cb_params["checkpoint_params"]
-        if ckpoint_params["checkpoint_path"] != None: # hacky way to say no checkpoint callback but eh what the heck
+        # Having checkpoint_params=None is a hacky way to say no checkpoint
+        # callback but eh what the heck
+        if ckpoint_params["checkpoint_path"] != None:
             mode = ckpoint_params["mode"].lower()
             if mode == "full":
                 print("Stateful loading...")
@@ -210,66 +225,11 @@ class TrainExperiment(object):
                                                                       resume_dir=resume_dir),]
             elif mode == "model_only":
                 print("Loading weights into model...")
-                self.model = load_weights_train(ckpoint_params["checkpoint_path"], self.model)
+                self.model = load_weights_train(ckpoint_params["checkpoint_path"],
+                                                self.model)
         return callbacks_list
 
-class TrainSegExperimentFromConfig(TrainExperiment):
-    """
-    Stores the main parts of a segmentation experiment:
-    - df split
-    - datasets
-    - loaders
-    - model
-    - optimizer
-    - lr_scheduler
-    - criterion
-    - callbacks
-    """
-    def __init__(self, config: dict):
-        """
-        Args:
-            config (dict): from `train_seg_yaml.py`
-        """
-        self.model_params = config["model_params"]
-        super().__init__(config=config)
-
-    def get_datasets(self, train_ids, valid_ids):
-        """
-        Creates and returns the train and validation datasets.
-        """
-        # preparing transforms
-        train_aug = get_training_augmentation(self.io_params["aug_key"])
-        val_aug = get_validation_augmentation(self.io_params["aug_key"])
-        # creating the datasets
-        train_dataset = VoxelDataset(im_ids=train_ids,
-                                     transforms=train_aug,
-                                     preprocessing=get_preprocessing())
-        valid_dataset = VoxelDataset(im_ids=valid_ids,
-                                     transforms=val_aug,
-                                     preprocessing=get_preprocessing())
-        return (train_dataset, valid_dataset)
-
-    def get_model(self):
-        architecture = self.model_params["architecture"]
-        if architecture == "nnunet":
-            architecture_kwargs = self.model_params[architecture]
-            architecture_kwargs["conv_op"] = torch.nn.Conv3d
-            architecture_kwargs["norm_op"] = torch.nn.InstanceNorm3d
-            architecture_kwargs["dropout_op"] = torch.nn.Dropout3d
-            architecture_kwargs["nonlin"] = torch.nn.ReLU
-            architecture_kwargs["nonlin_kwargs"] = {"inplace": True}
-            architecture_kwargs["final_nonlin"] = lambda x: x
-            model = Generic_UNet(**architecture_kwargs)
-        else:
-            raise NotImplementedError
-        # calculating # of parameters
-        total = sum(p.numel() for p in model.parameters())
-        trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"Total # of Params: {total}\nTrainable params: {trainable}")
-
-        return model
-
-class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
+class TrainClfSegExperimentFromConfig(TrainExperiment):
     """
     Stores the main parts of a classification+segmentation experiment:
     - df split
@@ -284,31 +244,30 @@ class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
     def __init__(self, config: dict):
         """
         Args:
-            config (dict): from `train_seg_yaml.py`
+            config (dict): from a .yml file.
         """
         self.model_params = config["model_params"]
         super().__init__(config=config)
 
+    @abstractmethod
     def get_datasets(self, train_ids, valid_ids):
         """
-        Creates and returns the train and validation datasets.
+        Initializes the data augmentation and preprocessing transforms. Creates
+        and returns the train and validation datasets.
         """
-        # preparing transforms
-        train_aug = get_training_augmentation(self.io_params["aug_key"])
-        val_aug = get_validation_augmentation(self.io_params["aug_key"])
-        # creating the datasets
-        preprocess = get_preprocessing()
-        train_dataset = ClfSegVoxelDataset(im_ids=train_ids,
-                                           transforms=train_aug,
-                                           preprocessing=preprocess,
-                                           mode="both", num_classes=3)
-        valid_dataset = ClfSegVoxelDataset(im_ids=valid_ids,
-                                           transforms=val_aug,
-                                           preprocessing=preprocess,
-                                           mode="both", num_classes=3)
-        return (train_dataset, valid_dataset)
+        return
+
+    @abstractmethod
+    def get_model(self):
+        """
+        Creates and returns the model.
+        """
+        return
 
     def get_criterion(self):
+        """
+        Returns a dictionary of the desired criterion (for seg and clf)
+        """
         loss_dict = {
             "bce_dice_loss": BCEDiceLoss(eps=1.),
             "bce": torch.nn.BCEWithLogitsLoss(),
@@ -318,48 +277,47 @@ class TrainClfSegExperimentFromConfig(TrainSegExperimentFromConfig):
         seg_loss_name = self.criterion_params["seg_loss"].lower()
         clf_loss_name = self.criterion_params["clf_loss"].lower()
 
-        criterion_dict = {seg_loss_name: loss_dict[seg_loss_name],
-                          clf_loss_name: loss_dict[clf_loss_name]}
+        # re-initializing criterion with kwargs
+        seg_kwargs = self.criterion_params.get(seg_loss_name)
+        clf_kwargs = self.criterion_params.get(clf_loss_name)
+        seg_kwargs = {} if seg_kwargs is None else seg_kwargs
+        clf_kwargs = {} if clf_kwargs is None else clf_kwargs
+
+        seg_loss = loss_dict[seg_loss_name]
+        clf_loss = loss_dict[clf_loss_name]
+        seg_loss.__init__(**seg_kwargs), clf_loss.__init__(**clf_kwargs)
+        criterion_dict = {seg_loss_name: seg_loss,
+                          clf_loss_name: clf_loss}
         print(f"Criterion: {criterion_dict}")
         return criterion_dict
 
     def get_callbacks(self):
+        """
+        Gets the callbacks list; since this is multi-task, we need multiple
+        metrics! Therefore, callbacks_list will now contain the
+        CriterionAggregatorCallback and CriterionCallback. They calculate and
+        record the `seg_loss` and `clf_loss`.
+        """
         from catalyst.dl.callbacks import CriterionAggregatorCallback, \
                                           CriterionCallback
-
+        seg_loss_name = self.criterion_params["seg_loss"].lower()
+        clf_loss_name = self.criterion_params["clf_loss"].lower()
         callbacks_list = [
                           CriterionCallback(prefix="seg_loss",
                                             input_key="seg_targets",
                                             output_key="seg_logits",
-                                            criterion_key="ce_dice_loss"),
+                                            criterion_key=seg_loss_name),
                           CriterionCallback(prefix="clf_loss",
                                             input_key="clf_targets",
                                             output_key="clf_logits",
-                                            criterion_key="bce_dice_loss"),
+                                            criterion_key=clf_loss_name),
                           CriterionAggregatorCallback(prefix="loss",
                                                       loss_keys=\
                                                       ["seg_loss", "clf_loss"]),
                           EarlyStoppingCallback(**self.cb_params["earlystop"]),
                           ]
+        callbacks_list = self.load_weights(callbacks_list)
 
-        ckpoint_params = self.cb_params["checkpoint_params"]
-        if ckpoint_params["checkpoint_path"] != None: # hacky way to say no checkpoint callback but eh what the heck
-            mode = ckpoint_params["mode"].lower()
-            if mode == "full":
-                print("Stateful loading...")
-                ckpoint_p = Path(ckpoint_params["checkpoint_path"])
-                fname = ckpoint_p.name
-                # everything in the path besides the base file name
-                resume_dir = str(ckpoint_p.parents[0])
-                print(f"Loading {fname} from {resume_dir}. \
-                      \nCheckpoints will also be saved in {resume_dir}.")
-                # adding the checkpoint callback
-                callbacks_list = callbacks_list + [CheckpointCallback(resume=fname,
-                                                                      resume_dir=resume_dir),]
-            elif mode == "model_only":
-                print("Loading weights into model...")
-                self.model = load_weights_train(ckpoint_params["checkpoint_path"], self.model)
-        print(f"Callbacks: {callbacks_list}")
         return callbacks_list
 
 def load_weights_train(checkpoint_path, model):
