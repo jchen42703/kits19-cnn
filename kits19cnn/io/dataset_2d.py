@@ -12,7 +12,7 @@ class SliceDataset(Dataset):
                  transforms=None,
                  preprocessing=None,
                  p_pos_per_sample: float = 0.33,
-                 mode:str = "seg",
+                 mode: str = "seg",
                  num_classes: int = 3):
         """
         Reads from a directory of 2D slice numpy arrays and samples positive
