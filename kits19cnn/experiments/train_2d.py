@@ -111,7 +111,7 @@ class TrainSegExperiment2D(TrainExperiment2D):
 
         return model
 
-class TrainClfSegExperiment2D(TrainClfSegExperiment):
+class TrainClfSegExperiment2D(TrainExperiment2D, TrainClfSegExperiment):
     """
     Stores the main parts of a classification+segmentation experiment:
     - df split
