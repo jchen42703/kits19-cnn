@@ -138,40 +138,39 @@ class TrainExperiment(object):
         return {"train": train_loader, "valid": valid_loader}
 
     def get_opt(self):
+        """
+        Creates the optimizer
+        """
         assert isinstance(self.model, torch.nn.Module), \
             "`model` must be an instance of torch.nn.Module`"
         # fetching optimizers
-        lr = self.opt_params["lr"]
-        opt_name = self.opt_params["opt"].lower()
-        if opt_name == "adam":
-            opt = torch.optim.Adam(self.model.parameters(), lr=lr)
-        elif opt_name == "sgd":
-            opt = torch.optim.SGD(filter(lambda p: p.requires_grad,
-                                  self.model.parameters()),
-                                  lr=lr, momentum=0.9, weight_decay=0.0001)
+        opt_name = self.opt_params["opt"]
+        opt_kwargs = self.opt_params[opt_name]
+        opt_cls = torch.optim.__dict__[opt_name]
+        opt = opt_cls(filter(lambda p: p.requires_grad,
+                             self.model.parameters()),
+                      **opt_kwargs)
+        print(f"Optimizer: {opt}")
         return opt
 
     def get_lr_scheduler(self):
+        """
+        Creates the LR scheduler from the optimizer created in `self.get_opt`
+        """
         assert isinstance(self.opt, torch.optim.Optimizer), \
             "`optimizer` must be an instance of torch.optim.Optimizer"
         sched_params = self.opt_params["scheduler_params"]
-        scheduler_name = sched_params["scheduler"].lower()
+        scheduler_name = sched_params["scheduler"]
         scheduler_args = sched_params[scheduler_name]
-        # fetching lr schedulers
-        if scheduler_name == "plateau":
-            scheduler = ReduceLROnPlateau(self.opt, **scheduler_args)
-        elif scheduler_name == "cosineannealing":
-            scheduler = CosineAnnealingLR(self.opt, **scheduler_args)
-        elif scheduler_name == "cosineannealingwr":
-            scheduler = CosineAnnealingWarmRestarts(self.opt,
-                                                    **scheduler_args)
-        elif scheduler_name == "clr":
-            scheduler = CyclicLR(self.opt, **scheduler_args)
+        scheduler_cls = torch.optim.lr_scheduler.__dict__[scheduler_name]
+        scheduler = scheduler_cls(optimizer=optimizer, **scheduler_args)
         print(f"LR Scheduler: {scheduler}")
-
         return scheduler
 
     def get_criterion(self):
+        """
+        Fetches the criterion dictionary. (Only one loss.)
+        """
         loss_name = self.criterion_params["loss"].lower()
         loss_dict = {
             "bce_dice_loss": BCEDiceLoss(eps=1.),
