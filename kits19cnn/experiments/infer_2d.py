@@ -64,7 +64,8 @@ class SegmentationInferenceExperiment2D(BaseInferenceExperiment):
         ^^^^^^^^^^^^^
         """
         unet_kwargs["conv_op"] = torch.nn.Conv2d
-        unet_kwargs["norm_op"] = torch.nn.InstanceNorm2d
+        if self.model_params.get("instance_norm"):
+            unet_kwargs["norm_op"] = torch.nn.InstanceNorm2d
         unet_kwargs["dropout_op"] = torch.nn.Dropout2d
         unet_kwargs["nonlin"] = torch.nn.ReLU
         unet_kwargs["nonlin_kwargs"] = {"inplace": True}
