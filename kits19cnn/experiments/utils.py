@@ -76,7 +76,14 @@ def get_training_augmentation(augmentation_key="aug1"):
                      bg.MirrorTransform(axes=(0, 1)),]
     transform_dict["aug6"] = transforms_2d +  transform_dict["aug3"][2:]
 
+    aug7_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
+    aug7_spatial_kwargs["patch_size"] = (256, 256)
+    transforms_2d = [bg.SpatialTransform(**aug7_spatial_kwargs),
+                     bg.MirrorTransform(axes=(0, 1)),]
+    transform_dict["aug7"] = transforms_2d +  transform_dict["aug3"][2:]
+
     train_transform = transform_dict[augmentation_key]
+    print(f"Train Transforms: {train_transform}")
     return bg.Compose(train_transform)
 
 def get_validation_augmentation(augmentation_key):
@@ -102,8 +109,12 @@ def get_validation_augmentation(augmentation_key):
                       "aug6": [
                         bg.RandomCropTransform(crop_size=(192, 192))
                       ],
+                      "aug7": [
+                        bg.CenterCropTransform(crop_size=(256, 256))
+                      ],
                      }
     test_transform = transform_dict[augmentation_key]
+    print(f"\nTest/Validation Transforms: {test_transform}")
     return bg.Compose(test_transform)
 
 def get_preprocessing(rgb: bool = False):
@@ -129,6 +140,7 @@ def get_preprocessing(rgb: bool = False):
     if rgb:
         # insert right before converting to a torch tensor
         _transform.insert(-2, RepeatChannelsTransform(num_repeats=3))
+    print(f"\nPreprocessing Transforms: {_transform}")
     return bg.Compose(_transform)
 
 def seed_everything(seed=42):
