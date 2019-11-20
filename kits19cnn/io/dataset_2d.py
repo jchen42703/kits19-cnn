@@ -67,9 +67,9 @@ class SliceDataset(Dataset):
 
         if self.mode == "both":
             return {"features": x, "seg_targets": y, "clf_targets": y_clf}
-        elif self.mode == "clf_only":
+        elif self.mode == "classification":
             return (x, y_clf)
-        elif self.mode == "seg_only":
+        elif self.mode == "segmentation":
             return (x, y)
 
     def __len__(self):
