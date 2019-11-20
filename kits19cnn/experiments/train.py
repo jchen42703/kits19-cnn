@@ -162,7 +162,7 @@ class TrainExperiment(object):
 
     def get_criterion(self):
         """
-        Fetches the criterion dictionary. (Only one loss.)
+        Fetches the criterion. (Only one loss.)
         """
         loss_name = self.criterion_params["loss"].lower()
         loss_dict = {
@@ -176,10 +176,8 @@ class TrainExperiment(object):
 
         loss = loss_dict[loss_name]
         loss.__init__(**loss_kwargs)
-        criterion_dict = {loss_name: loss}
-        print(f"Criterion: {criterion_dict}")
-
-        return criterion
+        print(f"Criterion: {loss}")
+        return loss
 
     def get_callbacks(self):
         """
