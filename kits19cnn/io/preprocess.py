@@ -20,18 +20,19 @@ class Preprocessor(object):
         * resampling from `orig_spacing` to `target_spacing`
             currently uses spacing reported in the #1 solution
     """
-    def __init__(self, in_dir, out_dir, cases=None,
-                 orig_spacing=(3, 0.78162497, 0.78162497),
+    def __init__(self, in_dir, out_dir, cases=None, kits_json_path=None,
                  target_spacing=(3.22, 1.62, 1.62),
                  clip_values=None, with_mask=False, fg_idx_per_class=False,
                  fg_classes=[1, 2]):
         """
         Attributes:
-            in_dir (str): directory with the input data. Should be the kits19/data directory.
+            in_dir (str): directory with the input data. Should be the
+                kits19/data directory.
             out_dir (str): output directory where you want to save each case
             cases: list of case folders to preprocess
-            orig_spacing (list/tuple): spacing of nifti files
-                Assumes same spacing
+            kits_json_path (str): path to the kits.json file in the kits19/data
+                directory. This only should be specfied if you're resampling.
+                Defaults to None.
             target_spacing (list/tuple): spacing to resample to
             clip_values (list, tuple): values you want to clip CT scans to.
                 Defaults to None for no clipping.
@@ -45,9 +46,9 @@ class Preprocessor(object):
         """
         self.in_dir = in_dir
         self.out_dir = out_dir
-        self.clip_values = clip_values
 
-        self.orig_spacing = np.array(orig_spacing)
+        self._load_kits_json(kits_json_path)
+        self.clip_values = clip_values
         self.target_spacing = np.array(target_spacing)
         self.with_mask = with_mask
         self.fg_idx_per_class = fg_idx_per_class
@@ -59,7 +60,8 @@ class Preprocessor(object):
                           for case in os.listdir(self.in_dir) \
                           if case.startswith("case")]
             self.cases = sorted(self.cases)
-            assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
+            assert len(self.cases) > 0, \
+                "Please make sure that in_dir refers to the proper directory."
         # making directory if out_dir doesn't exist
         if not isdir(out_dir):
             os.mkdir(out_dir)
@@ -79,23 +81,36 @@ class Preprocessor(object):
             image = nib.load(x_path).get_fdata()[None]
             label = nib.load(y_path).get_fdata()[None] if self.with_mask \
                     else None
-            preprocessed_img, preprocessed_label = self.preprocess(image, label)
+            preprocessed_img, preprocessed_label = self.preprocess(image,
+                                                                   label,
+                                                                   case)
 
             self.save_imgs(preprocessed_img, preprocessed_label, case)
 
-    def preprocess(self, image, mask):
+    def preprocess(self, image, mask, case=None):
         """
         Clipping, cropping, and resampling.
         Args:
             image: numpy array
             mask: numpy array or None
+            case (str): path to a case folder
         Returns:
             tuple of:
                 - preprocessed image
                 - preprocessed mask or None
         """
+        raw_case = Path(case).name # raw case name, i.e. case_00000
         if self.target_spacing is not None:
-            image, mask = resample_patient(image, mask, self.orig_spacing,
+            for info_dict in self.kits_json:
+                # guaranteeing that the info is corresponding to the right
+                # case
+                if info_dict["case_id"] == raw_case:
+                    case_info_dict = info_dict
+                    break
+            orig_spacing = (case_info_dict["captured_slice_thickness"],
+                            case_info_dict["captured_pixel_width"],
+                            case_info_dict["captured_pixel_width"])
+            image, mask = resample_patient(image, mask, np.array(orig_spacing),
                                            target_spacing=self.target_spacing)
         if self.clip_values is not None:
             image = np.clip(image, self.clip_values[0], self.clip_values[1])
@@ -182,3 +197,13 @@ class Preprocessor(object):
                     label_slice)
         # {case1: [idx1, idx2,...], case2: ...}
         self.pos_slice_dict[case] = fg_indices
+
+    def _load_kits_json(self, json_path):
+        """
+        Loads the kits.json file into `self.kits_json`
+        """
+        if json_path is None:
+            print("`kits_json_path is empty, so not resampling.`")
+        elif json_path is not None:
+            with open(json_path, "r") as fp:
+                self.kits_json = json.load(fp)
