@@ -1,6 +1,7 @@
 import os
-from pathlib import Path
 from os.path import join, isdir
+from pathlib import Path
+from collections import defaultdict
 from tqdm import tqdm
 import nibabel as nib
 import numpy as np
@@ -159,7 +160,7 @@ class Preprocessor(object):
             os.mkdir(out_case_dir)
 
         # iterates through all slices and saves them individually as 2D arrays
-        fg_indices = {} if self.fg_idx_per_class else []
+        fg_indices = defaultdict(list) if self.fg_idx_per_class else []
         for slice_idx in range(mask.shape[1]):
             label_slice = mask[:, slice_idx]
             # appending fg slice indices
