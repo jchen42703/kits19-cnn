@@ -147,9 +147,12 @@ class Preprocessor(object):
         self.pos_slice_dict = {}
         # Generating data and saving them recursively
         for case in tqdm(self.cases):
-            # assumes the .npy files have shape: (n_channels, h, w)
+            # assumes the .npy files have shape: (n_channels, d, h, w)
             image = np.load(join(case, "imaging.npy"))
             label = np.load(join(case, "segmentation.npy"))
+            image = image.squeeze(axis=0) if len(image.shape)==5 else image
+            label = label.squeeze(axis=0) if len(label.shape)==5 else label
+
             self.save_3d_as_2d(image, label, case)
         save_path = join(self.out_dir, "slice_indices.json")
         print(f"Saving the positive slice dictionary at {save_path}.")
@@ -176,6 +179,11 @@ class Preprocessor(object):
 
         # iterates through all slices and saves them individually as 2D arrays
         fg_indices = defaultdict(list) if self.fg_idx_per_class else []
+        if mask.shape[1] <= 1:
+            print("WARNING: Please double check your mask shape;",
+                  f"Masks have shape {mask.shape} when it should be",
+                  "shape (n_channels, d, h, w)")
+            raise Exception("Please fix shapes.")
         for slice_idx in range(mask.shape[1]):
             label_slice = mask[:, slice_idx]
             # appending fg slice indices
