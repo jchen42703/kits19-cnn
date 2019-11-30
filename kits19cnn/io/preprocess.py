@@ -53,6 +53,11 @@ class Preprocessor(object):
         self.with_mask = with_mask
         self.fg_idx_per_class = fg_idx_per_class
         self.fg_classes = fg_classes
+        if fg_idx_per_class:
+            print(f"Logging the slice indices for each class in {fg_classes}")
+        else:
+            print("Logging slices indices for all fg classes instead of for",
+                  "each class separately.")
         self.cases = cases
         # automatically collecting all of the case folder names
         if self.cases is None:
@@ -189,7 +194,8 @@ class Preprocessor(object):
             # appending fg slice indices
             if self.fg_idx_per_class:
                 for idx in self.fg_classes:
-                    fg_indices[idx].append(slice_idx)
+                    if (label_slice == idx).any():
+                        fg_indices[idx].append(slice_idx)
             elif not self.fg_idx_per_class:
                 if (label_slice > 0).any():
                     fg_indices.append(slice_idx)
