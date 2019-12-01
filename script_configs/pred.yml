@@ -3,6 +3,7 @@
   with_masks: True
   mode: segmentation
   checkpoint_path: nnunet3d_exp2_94epochs_last_full.pth
+  pseudo_3D: False
 
   io_params:
     test_size: 0.2

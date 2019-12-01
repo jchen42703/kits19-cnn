@@ -34,7 +34,8 @@ def main(config):
     pred = Predictor(out_dir=config["out_dir"],
                      checkpoint_path=config["checkpoint_path"],
                      model=exp.model, test_loader=exp.loaders["test"],
-                     pred_3D_params=config["predict_3D_params"])
+                     pred_3D_params=config["predict_3D_params"],
+                     pseudo_3D=config.get("pseudo_3D"))
     pred.run_3D_predictions()
 
 if __name__ == "__main__":
