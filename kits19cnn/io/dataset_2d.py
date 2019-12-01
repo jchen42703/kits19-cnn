@@ -168,7 +168,7 @@ class PseudoSliceDataset(SliceDataset):
     def __init__(self, im_ids: np.array, pos_slice_dict: dict, transforms=None,
                  preprocessing=None, p_pos_per_sample: float = 0.33,
                  mode: str = "segmentation", num_classes: int = 3,
-                 num_pseudo_slices=num_pseudo_slices):
+                 num_pseudo_slices=1):
         """
         Reads from a directory of 2D slice numpy arrays and samples positive
         slices. Assumes the data directory contains 2D slices processed by
