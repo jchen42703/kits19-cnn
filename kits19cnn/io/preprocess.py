@@ -220,7 +220,7 @@ class Preprocessor(object):
         save_path = join(self.out_dir, "slice_indices.json")
         save_path_general = join(self.out_dir, "slice_indices_general.json")
         # saving the dictionaries
-        print(f"Logged the slice indices for each class in {fg_classes} at"
+        print(f"Logged the slice indices for each class in {self.fg_classes} at"
               f"{save_path}.")
         with open(save_path, "w") as fp:
             json.dump(self.pos_slice_dict, fp)
