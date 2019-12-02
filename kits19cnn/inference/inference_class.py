@@ -38,7 +38,7 @@ class Predictor(object):
         self.model = load_weights_infer(checkpoint_path, model)
         self.test_loader = test_loader
         self.pred_3D_params = pred_3D_params
-        self.pseudo_3d = pseudo_3d
+        self.pseudo_3D = pseudo_3D
 
     def run_3D_predictions(self):
         """
