@@ -6,7 +6,8 @@ import batchgenerators.transforms as bg
 import torch
 from copy import deepcopy
 
-from kits19cnn.io import ROICropTransform, RepeatChannelsTransform
+from kits19cnn.io import ROICropTransform, RepeatChannelsTransform, \
+                         MultiClassToBinaryTransform
 
 bgut = bg.utility_transforms
 bgct = bg.color_transforms
@@ -74,26 +75,33 @@ def get_training_augmentation(augmentation_key="aug1"):
     # RemoveLabelTransform added to preprocessing
     transform_dict["aug5"] = new_transforms + transform_dict["aug4"][2:]
     # 2D Transforms
-    # roicrop, spatial, mirror, gamma, brightness
+    # spatial, mirror, gamma, brightness
     aug6_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
     aug6_spatial_kwargs["patch_size"] = (192, 192)
     transforms_2d = [bg.SpatialTransform(**aug6_spatial_kwargs),
                      bg.MirrorTransform(axes=(0, 1)),]
     transform_dict["aug6"] = transforms_2d +  transform_dict["aug3"][2:]
 
+    # spatial, mirror, gamma, brightness
     aug7_spatial_kwargs = deepcopy(aug3_spatial_kwargs)
     aug7_spatial_kwargs["patch_size"] = (256, 256)
     transforms_2d = [bg.SpatialTransform(**aug7_spatial_kwargs),
                      bg.MirrorTransform(axes=(0, 1)),]
     transform_dict["aug7"] = transforms_2d +  transform_dict["aug3"][2:]
 
-    tu_only = [bgut.RemoveLabelTransform(1, 0),]
+    # spatial, mirror, gamma, brightness, removelabel
+    tu_only = [MultiClassToBinaryTransform(roi_label="2", remove_label="1")]
     transform_dict["tu_only2d"] = transform_dict["aug7"] + tu_only
 
     tu_only2d2_spatial_kwargs = deepcopy(aug7_spatial_kwargs)
-    tu_only2d2_spatial_kwargs["p_scale_per_sample"] = 0.4
-    new_t = [bg.SpatialTransform(**tu_only2d2_spatial_kwargs)]
-    transform_dict["tu_only2d2"] = new_t + transform_dict["tu_only2d"][1:]
+    tu_only2d2_spatial_kwargs["p_scale_per_sample"] = 0.5
+    tu_only2d2_spatial_kwargs["p_rot_per_sample"] = 0.5
+
+    new_t = [bg.SpatialTransform(**tu_only2d2_spatial_kwargs),
+             bg.BrightnessTransform(mu=101, sigma=76.9, p_per_sample=0.5)]
+    transform_dict["tu_only2d2"] = [new_t[0]] + transform_dict["tu_only2d"][1:-2] \
+                                   + [new_t[1]] + [transform_dict["tu_only2d"][-1]]
+
 
     train_transform = transform_dict[augmentation_key]
     print(f"Train Transforms: {train_transform}")
@@ -131,7 +139,7 @@ def get_validation_augmentation(augmentation_key):
                       ],
                       "tu_only2d2": [
                         bg.CenterCropTransform(crop_size=(256, 256)),
-                        bgut.RemoveLabelTransform(1, 0)
+                        MultiClassToBinaryTransform(roi_label="2", remove_label="1"),
                       ],
                      }
     test_transform = transform_dict[augmentation_key]
