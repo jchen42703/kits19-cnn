@@ -64,8 +64,10 @@
     # encoder: resnet34
     # unet_smp:
     #   attention_type: ~ # scse
+    #   classes: 3
     #   decoder_use_batchnorm: True # inplace for InplaceABN
     # fpn_smp:
+    #   classes: 3
     #   dropout: 0.2
 
   opt_params:

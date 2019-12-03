@@ -113,13 +113,11 @@ class TrainSegExperiment2D(TrainExperiment2D):
             model = Generic_UNet(**architecture_kwargs)
         elif architecture.lower() == "unet_smp":
             model = smp.Unet(encoder_name=self.model_params["encoder"],
-                             encoder_weights="imagenet",
-                             classes=3, activation=None,
+                             encoder_weights="imagenet", activation=None,
                              **self.model_params[architecture])
         elif architecture.lower() == "fpn_smp":
             model = smp.FPN(encoder_name=self.model_params["encoder"],
-                            encoder_weights="imagenet",
-                            classes=3, activation=None,
+                            encoder_weights="imagenet", activation=None,
                             **self.model_params[architecture])
         # calculating # of parameters
         total = sum(p.numel() for p in model.parameters())
