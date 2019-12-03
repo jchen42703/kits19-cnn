@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 import segmentation_models_pytorch as smp
 
-from kits19cnn.io import SliceDataset
+from kits19cnn.io import SliceDataset, PseudoSliceDataset
 from kits19cnn.models import Generic_UNet
 from .utils import get_training_augmentation, get_validation_augmentation, \
                    get_preprocessing
@@ -49,19 +49,36 @@ class TrainExperiment2D(TrainExperiment):
         with open(self.io_params["slice_indices_path"], "r") as fp:
             pos_slice_dict = json.load(fp)
         p_pos_per_sample = self.io_params["p_pos_per_sample"]
-
-        train_dataset = SliceDataset(im_ids=train_ids,
-                                     pos_slice_dict=pos_slice_dict,
-                                     transforms=train_aug,
-                                     preprocessing=get_preprocessing(use_rgb),
-                                     p_pos_per_sample=p_pos_per_sample,
-                                     mode=self.config["mode"])
-        valid_dataset = SliceDataset(im_ids=valid_ids,
-                                     pos_slice_dict=pos_slice_dict,
-                                     transforms=val_aug,
-                                     preprocessing=get_preprocessing(use_rgb),
-                                     p_pos_per_sample=p_pos_per_sample,
-                                     mode=self.config["mode"])
+        if self.io_params.get("pseudo_3D"):
+            assert not use_rgb, \
+                "Currently architectures that require RGB inputs cannot use pseudo slices."
+            train_dataset = PseudoSliceDataset(im_ids=train_ids,
+                                               pos_slice_dict=pos_slice_dict,
+                                               transforms=train_aug,
+                                               preprocessing=get_preprocessing(use_rgb),
+                                               p_pos_per_sample=p_pos_per_sample,
+                                               mode=self.config["mode"],
+                                               num_pseudo_slices=self.io_params["num_pseudo_slices"])
+            valid_dataset = PseudoSliceDataset(im_ids=valid_ids,
+                                               pos_slice_dict=pos_slice_dict,
+                                               transforms=val_aug,
+                                               preprocessing=get_preprocessing(use_rgb),
+                                               p_pos_per_sample=p_pos_per_sample,
+                                               mode=self.config["mode"],
+                                               num_pseudo_slices=self.io_params["num_pseudo_slices"])
+        else:
+            train_dataset = SliceDataset(im_ids=train_ids,
+                                         pos_slice_dict=pos_slice_dict,
+                                         transforms=train_aug,
+                                         preprocessing=get_preprocessing(use_rgb),
+                                         p_pos_per_sample=p_pos_per_sample,
+                                         mode=self.config["mode"])
+            valid_dataset = SliceDataset(im_ids=valid_ids,
+                                         pos_slice_dict=pos_slice_dict,
+                                         transforms=val_aug,
+                                         preprocessing=get_preprocessing(use_rgb),
+                                         p_pos_per_sample=p_pos_per_sample,
+                                         mode=self.config["mode"])
 
         return (train_dataset, valid_dataset)
 

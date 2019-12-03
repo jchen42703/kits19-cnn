@@ -22,8 +22,7 @@ class Preprocessor(object):
     """
     def __init__(self, in_dir, out_dir, cases=None, kits_json_path=None,
                  target_spacing=(3.22, 1.62, 1.62),
-                 clip_values=None, with_mask=False, fg_idx_per_class=False,
-                 fg_classes=[1, 2]):
+                 clip_values=None, with_mask=False, fg_classes=[1, 2]):
         """
         Attributes:
             in_dir (str): directory with the input data. Should be the
@@ -39,9 +38,6 @@ class Preprocessor(object):
             with_mask (bool): whether or not to preprocess with masks or no
                 masks. Applicable to preprocessing test set (no labels
                 available).
-            fg_idx_per_class (bool): whether or not to gather the foreground
-                indices as a general list or as a dictionary:
-                    {0.0: [...], 1.0: [....], etc.}
             fg_classes (list): of foreground class indices
         """
         self.in_dir = in_dir
@@ -51,13 +47,7 @@ class Preprocessor(object):
         self.clip_values = clip_values
         self.target_spacing = np.array(target_spacing)
         self.with_mask = with_mask
-        self.fg_idx_per_class = fg_idx_per_class
         self.fg_classes = fg_classes
-        if fg_idx_per_class:
-            print(f"Logging the slice indices for each class in {fg_classes}")
-        else:
-            print("Logging slices indices for all fg classes instead of for",
-                  "each class separately.")
         self.cases = cases
         # automatically collecting all of the case folder names
         if self.cases is None:
@@ -159,10 +149,7 @@ class Preprocessor(object):
             label = label.squeeze(axis=0) if len(label.shape)==5 else label
 
             self.save_3d_as_2d(image, label, case)
-        save_path = join(self.out_dir, "slice_indices.json")
-        print(f"Saving the positive slice dictionary at {save_path}.")
-        with open(save_path, "w") as fp:
-            json.dump(self.pos_slice_dict, fp)
+        self._save_pos_slice_dict()
 
     def save_3d_as_2d(self, image, mask, case):
         """
@@ -183,7 +170,7 @@ class Preprocessor(object):
             os.mkdir(out_case_dir)
 
         # iterates through all slices and saves them individually as 2D arrays
-        fg_indices = defaultdict(list) if self.fg_idx_per_class else []
+        fg_indices = defaultdict(list)
         if mask.shape[1] <= 1:
             print("WARNING: Please double check your mask shape;",
                   f"Masks have shape {mask.shape} when it should be",
@@ -192,13 +179,9 @@ class Preprocessor(object):
         for slice_idx in range(mask.shape[1]):
             label_slice = mask[:, slice_idx]
             # appending fg slice indices
-            if self.fg_idx_per_class:
-                for idx in self.fg_classes:
-                    if (label_slice == idx).any():
-                        fg_indices[idx].append(slice_idx)
-            elif not self.fg_idx_per_class:
-                if (label_slice > 0).any():
-                    fg_indices.append(slice_idx)
+            for idx in self.fg_classes:
+                if (label_slice == idx).any():
+                    fg_indices[idx].append(slice_idx)
             # naming convention: {type of slice}_{case}_{slice_idx}
             slice_idx_str = str(slice_idx)
             # adding 0s to slice_idx until it reaches 3 digits,
@@ -211,6 +194,40 @@ class Preprocessor(object):
                     label_slice)
         # {case1: [idx1, idx2,...], case2: ...}
         self.pos_slice_dict[case] = fg_indices
+
+    def _save_pos_slice_dict(self):
+        """
+        Saves the foreground (positive) class dictionaries:
+            - slice_indices.json
+                saves the slice indices per class
+                    {
+                        case: {fg_class1: [slice indices...],
+                               fg_class2: [slice indices...],
+                               ...}
+                    }
+            - slice_indices_general.json
+                saves the slice indices for all foreground classes into a
+                    single list
+                    {case: [slice indices...],}
+        """
+        # converting pos_slice_dict to general_slice_dict
+        general_slice_dict = defaultdict(list)
+        for case, slice_idx_dict in self.pos_slice_dict.items():
+            for slice_idx_list in list(slice_idx_dict.values()):
+                for slice_idx in slice_idx_list:
+                    general_slice_dict[case].append(slice_idx)
+
+        save_path = join(self.out_dir, "slice_indices.json")
+        save_path_general = join(self.out_dir, "slice_indices_general.json")
+        # saving the dictionaries
+        print(f"Logged the slice indices for each class in {self.fg_classes} at"
+              f"{save_path}.")
+        with open(save_path, "w") as fp:
+            json.dump(self.pos_slice_dict, fp)
+        print("Logged slice indices for all fg classes instead of for each",
+              f"class separately at {save_path_general}.")
+        with open(save_path_general, "w") as fp:
+            json.dump(general_slice_dict, fp)
 
     def _load_kits_json(self, json_path):
         """

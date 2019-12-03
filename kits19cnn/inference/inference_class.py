@@ -15,7 +15,8 @@ class Predictor(object):
     Predictions are saved in `out_dir`.
     """
     def __init__(self, out_dir, checkpoint_path, model,
-                 test_loader, pred_3D_params={"do_mirroring": True}):
+                 test_loader, pred_3D_params={"do_mirroring": True},
+                 pseudo_3D: bool = False):
         """
         Attributes
             out_dir (str): path to the output directory to store predictions
@@ -26,6 +27,7 @@ class Predictor(object):
                 (pref. torch DataLoader)
                 must have the __len__ arg.
             pred_3D_params (dict): kwargs for `model.predict_3D`
+            pseudo_3D (bool): whether or not to have pseudo 3D inputs
         """
         self.out_dir = out_dir
         if not isdir(self.out_dir):
@@ -36,6 +38,7 @@ class Predictor(object):
         self.model = load_weights_infer(checkpoint_path, model)
         self.test_loader = test_loader
         self.pred_3D_params = pred_3D_params
+        self.pseudo_3D = pseudo_3D
 
     def run_3D_predictions(self):
         """
@@ -45,7 +48,12 @@ class Predictor(object):
         assert len(cases) == len(self.test_loader)
         for (test_batch, case) in tqdm(zip(self.test_loader, cases), total=len(cases)):
             test_x = torch.squeeze(test_batch[0], dim=0)
-            pred, _, act, _ = self.model.predict_3D(test_x, **self.pred_3D_params)
+            if self.pseudo_3D:
+                pred, _, act, _ = self.model.predict_3D_pseudo3D_2Dconv(test_x,
+                                                                    **self.pred_3D_params)
+            else:
+                pred, _, act, _ = self.model.predict_3D(test_x,
+                                                        **self.pred_3D_params)
             assert len(pred.shape) == 3
             assert len(act.shape) == 4
             ### possible place to threshold ROI size ###

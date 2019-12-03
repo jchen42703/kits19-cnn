@@ -316,7 +316,9 @@ class SegmentationNetwork(NeuralNetwork):
             if BATCH_SIZE is not None:
                 data = np.vstack([data] * BATCH_SIZE)
 
-            result = self._internal_maybe_mirror_and_pred_2D(data, num_repeats, mirror_axes, do_mirroring)[0]
+            result = self._internal_maybe_mirror_and_pred_2D(data, num_repeats,
+                                                             mirror_axes,
+                                                             do_mirroring)[0]
 
             slicer = tuple(
                 [slice(0, result.shape[i]) for i in range(len(result.shape) - (len(slicer) - 1))] + slicer[1:])
@@ -327,7 +329,8 @@ class SegmentationNetwork(NeuralNetwork):
                 predicted_segmentation = softmax_pred.argmax(0)
             else:
                 predicted_segmentation_shp = softmax_pred[0].shape
-                predicted_segmentation = np.zeros(predicted_segmentation_shp, dtype=np.float32)
+                predicted_segmentation = np.zeros(predicted_segmentation_shp,
+                                                  dtype=np.float32)
                 for i, c in enumerate(regions_class_order):
                     predicted_segmentation[softmax_pred[i] > 0.5] = c
         return predicted_segmentation, _, softmax_pred, _
@@ -352,7 +355,10 @@ class SegmentationNetwork(NeuralNetwork):
             if BATCH_SIZE is not None:
                 data = np.vstack([data] * BATCH_SIZE)
 
-            stacked = self._internal_maybe_mirror_and_pred_3D(data, num_repeats, mirror_axes, do_mirroring, None)[0]
+            stacked = self._internal_maybe_mirror_and_pred_3D(data, num_repeats,
+                                                              mirror_axes,
+                                                              do_mirroring,
+                                                              None)[0]
 
             slicer = tuple(
                 [slice(0, stacked.shape[i]) for i in range(len(stacked.shape) - (len(slicer) - 1))] + slicer[1:])
@@ -537,7 +543,10 @@ class SegmentationNetwork(NeuralNetwork):
                     ub_y = y + patch_size[1] // 2
                     predicted_patch = \
                         self._internal_maybe_mirror_and_pred_2D(data[:, :, lb_x:ub_x, lb_y:ub_y],
-                                                                num_repeats, mirror_axes, do_mirroring, add_torch)[0]
+                                                                num_repeats,
+                                                                mirror_axes,
+                                                                do_mirroring,
+                                                                add_torch)[0]
                     if all_in_gpu:
                         predicted_patch = predicted_patch.half()
                     else:
@@ -565,7 +574,8 @@ class SegmentationNetwork(NeuralNetwork):
                 else:
                     softmax_pred_here = softmax_pred
                 predicted_segmentation_shp = softmax_pred_here[0].shape
-                predicted_segmentation = np.zeros(predicted_segmentation_shp, dtype=np.float32)
+                predicted_segmentation = np.zeros(predicted_segmentation_shp,
+                                                  dtype=np.float32)
                 for i, c in enumerate(regions_class_order):
                     predicted_segmentation[softmax_pred_here[i] > 0.5] = c
 
@@ -588,8 +598,11 @@ class SegmentationNetwork(NeuralNetwork):
         softmax_pred = []
         for s in range(data.shape[1]):
             pred_seg, bayesian_predictions, softmax_pres, uncertainty = \
-                self._internal_predict_2D_2Dconv(data[:, s], do_mirroring, num_repeats, min_size, BATCH_SIZE,
-                                                 mirror_axes, regions_class_order, pad_border_mode, pad_kwargs)
+                self._internal_predict_2D_2Dconv(data[:, s], do_mirroring,
+                                                 num_repeats, min_size,
+                                                 BATCH_SIZE, mirror_axes,
+                                                 regions_class_order,
+                                                 pad_border_mode, pad_kwargs)
             predicted_segmentation.append(pred_seg[None])
             softmax_pred.append(softmax_pres[None])
         predicted_segmentation = np.vstack(predicted_segmentation)
@@ -616,7 +629,9 @@ class SegmentationNetwork(NeuralNetwork):
             d = data[:, (s - extra_slices):(s + extra_slices + 1)]
             d = d.reshape((-1, d.shape[-2], d.shape[-1]))
             pred_seg, bayesian_predictions, softmax_pres, uncertainty = \
-                self._internal_predict_2D_2Dconv(d, do_mirroring, num_repeats, min_size, BATCH_SIZE, mirror_axes,
+                self._internal_predict_2D_2Dconv(d, do_mirroring, num_repeats,
+                                                 min_size, BATCH_SIZE,
+                                                 mirror_axes,
                                                  regions_class_order)
             predicted_segmentation.append(pred_seg[None])
             softmax_pred.append(softmax_pres[None])
