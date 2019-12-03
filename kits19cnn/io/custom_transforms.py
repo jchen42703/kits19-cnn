@@ -45,6 +45,32 @@ class ROICropTransform(AbstractTransform):
 
         return data_dict
 
+class MultiClassToBinaryTransform(AbstractTransform):
+    """
+    For changing a multi-class case to a binary one. Specify the label to
+    change to binary with `roi_label`.
+    - Don't forget to adjust `remove_label` accordingly!
+    - label will be turned to a binary label with only `roi_label`
+      existing as 1s
+    """
+    def __init__(self, roi_label="2", remove_label="1", label_key="seg"):
+        self.roi_label = int(roi_label)
+        self.remove_label = int(remove_label)
+        self.label_key = label_key
+
+    def __call__(self, **data_dict):
+        """
+        Replaces the label values
+        """
+        label = data_dict.get(self.label_key)
+        # changing labels
+        label[label == self.remove_label] = 0
+        label[label == self.roi_label] = 1
+
+        data_dict[self.label_key] = label
+
+        return data_dict
+
 class RepeatChannelsTransform(AbstractTransform):
     """
     Repeats across the channels dimension `num_tiles` number of times.
