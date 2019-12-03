@@ -90,6 +90,11 @@ def get_training_augmentation(augmentation_key="aug1"):
     tu_only = [bgut.RemoveLabelTransform(1, 0),]
     transform_dict["tu_only2d"] = transform_dict["aug7"] + tu_only
 
+    tu_only2d2_spatial_kwargs = deepcopy(aug7_spatial_kwargs)
+    tu_only2d2_spatial_kwargs["p_scale_per_sample"] = 0.4
+    new_t = [bg.SpatialTransform(**tu_only2d2_spatial_kwargs)]
+    transform_dict["tu_only2d2"] = new_t + transform_dict["tu_only2d"][1:]
+
     train_transform = transform_dict[augmentation_key]
     print(f"Train Transforms: {train_transform}")
     return bg.Compose(train_transform)
@@ -121,6 +126,10 @@ def get_validation_augmentation(augmentation_key):
                         bg.CenterCropTransform(crop_size=(256, 256))
                       ],
                       "tu_only2d": [
+                        bg.CenterCropTransform(crop_size=(256, 256)),
+                        bgut.RemoveLabelTransform(1, 0)
+                      ],
+                      "tu_only2d2": [
                         bg.CenterCropTransform(crop_size=(256, 256)),
                         bgut.RemoveLabelTransform(1, 0)
                       ],
