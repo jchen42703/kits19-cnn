@@ -52,7 +52,9 @@ class SegmentationInferenceExperiment2D(BaseInferenceExperiment):
                             "activation": None}
             model_kwargs.update(self.model_params[architecture])
             # adds the `predict_3D` method for the smp model
-            model = wrap_smp_model(model_type, model_kwargs)
+            model = wrap_smp_model(model_type, model_kwargs,
+                                   num_classes=model_kwargs["classes"],
+                                   activation=self.model_params["activation"])
         # calculating # of parameters
         total = sum(p.numel() for p in model.parameters())
         trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
