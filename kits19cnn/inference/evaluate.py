@@ -101,7 +101,7 @@ class Evaluator(object):
             label = np.load(y_path)
         elif self.file_ending == ".nii.gz" or self.file_ending == ".nii":
             label = nib.load(y_path).get_fdata()
-        pred = np.load(join(self.pred_dir, case, "pred.npy")).squeeze
+        pred = np.load(join(self.pred_dir, case, "pred.npy")).squeeze()
         if self.binary_tumor:
             # treating prediced 1s as tumor (2)
             pred[pred == 1] = 2
