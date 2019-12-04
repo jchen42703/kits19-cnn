@@ -29,6 +29,7 @@
       max_num_features: 320
     # # 2D ONLY
     # encoder: resnet34
+    # activation: softmax
     # unet_smp:
     #   attention_type: ~ # scse
     #   decoder_use_batchnorm: True # inplace for InplaceABN
