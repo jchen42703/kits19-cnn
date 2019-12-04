@@ -2,8 +2,7 @@ from kits19cnn.inference import Evaluator
 
 def main(config):
     """
-    Main code for training a classification model.
-
+    Main code for running the evaluation of 3D volumes.
     Args:
         config (dict): dictionary read from a yaml file
             i.e. script_configs/eval.yml
@@ -11,7 +10,8 @@ def main(config):
         None
     """
     evaluator = Evaluator(config["orig_img_dir"], config["pred_dir"],
-                          label_file_ending=config["label_file_ending"])
+                          label_file_ending=config["label_file_ending"],
+                          binary_tumor=config["binary_tumor"])
     evaluator.evaluate_all(print_metrics=config["print_metrics"])
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ class Evaluator(object):
     the output is in the KiTS19 file structure.
     """
     def __init__(self, orig_img_dir, pred_dir, cases=None,
-                 label_file_ending=".npy"):
+                 label_file_ending=".npy", binary_tumor=False):
         """
         Attributes:
             orig_img_dir: path to the directory containing the
@@ -36,6 +36,7 @@ class Evaluator(object):
             cases: list of filepaths to case folders or just case folder names.
                 Defaults to None.
             label_file_ending (str): one of ['.npy', '.nii', '.nii.gz']
+            binary_tumor (bool): whether or not to treat predicted 1s as tumor
         """
         self.orig_img_dir = orig_img_dir
         self.pred_dir = pred_dir
@@ -55,6 +56,9 @@ class Evaluator(object):
             # filtering them down to only cases in pred_dir
             self.cases_raw = [case for case in cases_raw \
                               if isdir(join(self.pred_dir, case))]
+        self.binary_tumor = binary_tumor
+        if self.binary_tumor:
+            print("Evaluating predicted 1s as tumor (changed to 2).")
 
     def evaluate_all(self, print_metrics=False):
         """
@@ -97,7 +101,10 @@ class Evaluator(object):
             label = np.load(y_path)
         elif self.file_ending == ".nii.gz" or self.file_ending == ".nii":
             label = nib.load(y_path).get_fdata()
-        pred = np.load(join(self.pred_dir, case, "pred.npy")).squeeze()
+        pred = np.load(join(self.pred_dir, case, "pred.npy")).squeeze
+        if self.binary_tumor:
+            # treating prediced 1s as tumor (2)
+            pred[pred == 1] = 2
         return (label, pred)
 
     def eval_all_metrics_per_case(self, metrics_dict, y_true, y_pred,
