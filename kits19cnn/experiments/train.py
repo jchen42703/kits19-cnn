@@ -2,9 +2,7 @@ import os
 from glob import glob
 from abc import abstractmethod
 from pathlib import Path
-from catalyst.dl.callbacks import AccuracyCallback, EarlyStoppingCallback, \
-                                  CheckpointCallback \
-                                  # PrecisionRecallF1ScoreCallback
+import catalyst.dl.callbacks as callbacks
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 import torch
@@ -157,7 +155,7 @@ class TrainExperiment(object):
         scheduler_args = sched_params[scheduler_name]
         scheduler_cls = torch.optim.lr_scheduler.__dict__[scheduler_name]
         scheduler = scheduler_cls(optimizer=self.opt, **scheduler_args)
-        print(f"LR Scheduler: {scheduler}")
+        print(f"LR Scheduler: {scheduler.__class__.__name__}")
         return scheduler
 
     def get_criterion(self):
@@ -183,12 +181,12 @@ class TrainExperiment(object):
         """
         Creates a list of callbacks.
         """
-        callbacks_list = [#PrecisionRecallF1ScoreCallback(num_classes=3),#DiceCallback(),
-                          # DiceCallback()
-                          EarlyStoppingCallback(**self.cb_params["earlystop"]),
-                          # AccuracyCallback(**self.cb_params["accuracy"]),
-                          ]
+        cb_name_list = list(self.cb_params.keys())
+        cb_name_list.remove("checkpoint_params")
+        callbacks_list = [callbacks.__dict__[cb_name](**self.cb_params[cb_name])
+                          for cb_name in cb_name_list]
         callbacks_list = self.load_weights(callbacks_list)
+        print(f"Callbacks: {[cb.__class__.__name__ for cb in callbacks_list]}")
         return callbacks_list
 
     def load_weights(self, callbacks_list):
@@ -211,8 +209,9 @@ class TrainExperiment(object):
                 print(f"Loading {fname} from {resume_dir}. \
                       \nCheckpoints will also be saved in {resume_dir}.")
                 # adding the checkpoint callback
-                callbacks_list = callbacks_list + [CheckpointCallback(resume=fname,
-                                                                      resume_dir=resume_dir),]
+                ckpoint = [callbacks.CheckpointCallback(resume=fname,
+                                                        resume_dir=resume_dir)]
+                callbacks_list = callbacks_list + ckpoint
             elif mode == "model_only":
                 print("Loading weights into model...")
                 self.model = load_weights_train(ckpoint_params["checkpoint_path"],
@@ -292,7 +291,7 @@ class TrainClfSegExperiment(TrainExperiment):
                                           CriterionCallback
         seg_loss_name = self.criterion_params["seg_loss"].lower()
         clf_loss_name = self.criterion_params["clf_loss"].lower()
-        callbacks_list = [
+        criterion_cb_list = [
                           CriterionCallback(prefix="seg_loss",
                                             input_key="seg_targets",
                                             output_key="seg_logits",
@@ -304,10 +303,14 @@ class TrainClfSegExperiment(TrainExperiment):
                           CriterionAggregatorCallback(prefix="loss",
                                                       loss_keys=\
                                                       ["seg_loss", "clf_loss"]),
-                          EarlyStoppingCallback(**self.cb_params["earlystop"]),
                           ]
-        callbacks_list = self.load_weights(callbacks_list)
-
+        # regular callbacks
+        cb_name_list = list(self.cb_params.keys())
+        cb_name_list.remove("checkpoint_params")
+        callbacks_list = [callbacks.__dict__[cb_name](**self.cb_params[cb_name])
+                          for cb_name in cb_name_list]
+        callbacks_list = self.load_weights(callbacks_list) + criterion_cb_list
+        print(f"Callbacks: {[cb.__class__.__name__ for cb in callbacks_list]}")
         return callbacks_list
 
 def load_weights_train(checkpoint_path, model):

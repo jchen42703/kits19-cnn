@@ -87,14 +87,14 @@
         threshold_mode: abs
 
   callback_params:
-    # ppvtprf1:
-    #   num_classes: 3
-    #   threshold: 0.5
-    #   activation: Softmax
-    earlystop:
+    EarlyStoppingCallback:
       patience: 60
       min_delta: 0.001
-    # accuracy:
+    # AccuracyCallback:
+    #   threshold: 0.5
+    #   activation: Softmax
+    # PrecisionRecallF1ScoreCallback:
+    #   num_classes: 3
     #   threshold: 0.5
     #   activation: Softmax
     checkpoint_params:
