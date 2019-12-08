@@ -7,7 +7,7 @@ import torch
 from copy import deepcopy
 
 from kits19cnn.io import ROICropTransform, RepeatChannelsTransform, \
-                         MultiClassToBinaryTransform
+                         MultiClassToBinaryTransform, RandomResizedCropTransform
 
 bgut = bg.utility_transforms
 bgct = bg.color_transforms
@@ -101,7 +101,11 @@ def get_training_augmentation(augmentation_key="aug1"):
              bg.BrightnessTransform(mu=101, sigma=76.9, p_per_sample=0.5)]
     transform_dict["tu_only2d2"] = [new_t[0]] + transform_dict["tu_only2d"][1:-2] \
                                    + [new_t[1]] + [transform_dict["tu_only2d"][-1]]
-
+    # adding RandomResizedCropTransform to the end
+    # spatial, mirror, gamma, brightness, removelabel, random_resized_crop
+    rand_resized_t = RandomResizedCropTransform(target_size=(256, 256),
+                                                p_per_sample=0.33)
+    transform_dict["tu_only2d3"] = transform_dict["tu_only2d2"] + [rand_resized_t]
 
     train_transform = transform_dict[augmentation_key]
     print(f"Train Transforms: {train_transform}")
@@ -138,6 +142,10 @@ def get_validation_augmentation(augmentation_key):
                         bgut.RemoveLabelTransform(1, 0)
                       ],
                       "tu_only2d2": [
+                        bg.CenterCropTransform(crop_size=(256, 256)),
+                        MultiClassToBinaryTransform(roi_label="2", remove_label="1"),
+                      ],
+                      "tu_only2d3": [
                         bg.CenterCropTransform(crop_size=(256, 256)),
                         MultiClassToBinaryTransform(roi_label="2", remove_label="1"),
                       ],
