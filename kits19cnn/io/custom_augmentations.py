@@ -1,4 +1,6 @@
 import numpy as np
+from batchgenerators.augmentations.utils import resize_segmentation, \
+                                                resize_multichannel_image
 from batchgenerators.augmentations.crop_and_pad_augmentations import get_lbs_for_center_crop, \
                                                                      get_lbs_for_random_crop
 
@@ -176,3 +178,66 @@ def center_crop(data, crop_size, seg=None, crop_kwargs={}):
     """
     return crop(data, seg, crop_size, margins=0, crop_type="center",
                 **crop_kwargs)
+
+def resize_data_and_seg(data, size, seg=None, order_data=3,
+                        order_seg=1, cval_seg=0):
+    """
+    Args:
+        data (np.ndarray): shape (b, c, h, w (, d))
+        seg (np.ndarray): shape (b, c, h, w (, d)). Defaults to None.
+        size (list/tuple of int): size to resize to
+            does not include the batch size or number of channels
+        order_data (int): interpolation order for data
+            (see skimage.transform.resize)
+        order_seg (int): interpolation order for seg
+            (see skimage.transform.resize)
+    """
+    target_data = np.ones(list(data.shape[:2]) + size)
+    if seg is not None:
+        target_seg = np.ones(list(seg.shape[:2]) + size)
+    else:
+        target_seg = None
+
+    for b in range(len(data)):
+        target_data[b] = resize_multichannel_image(data[b], size, order_data)
+        if seg is not None:
+            for c in range(seg.shape[1]):
+                target_seg[b, c] = resize_segmentation(seg[b, c], size,
+                                                       order_seg, cval_seg)
+    return target_data, target_seg
+
+def random_resized_crop(data, seg=None, target_size=128, crop_size=64,
+                        crop_kwargs={}, resize_kwargs={}):
+    """
+    Crops to `crop_size` and then resizes the result to `target_size`
+    Args:
+        data (np.ndarray): shape (b, c, h, w (, d))
+        seg (np.ndarray): shape (b, c, h, w (, d))
+        target_size (int/(list/tuple of int)): size to resize to
+            does not include the batch size or number of channels
+        crop_size (int/(list/tuple of int)): initial crop size
+            does not include the batch size or number of channels
+        crop_kwargs (dict): for custom_augmentations.crop
+        resize_kwargs (dict): for custom_augmentations.resize_data_and_seg
+            order_data (int): interpolation order for data
+                (see skimage.transform.resize)
+                Defaults to 3.
+            order_seg (int): interpolation order for seg
+                (see skimage.transform.resize)
+                Defaults to 1.
+            cval_seg (int): fill value for segmentation
+                Defaults to 0.
+    """
+    dimensionality = len(data.shape) - 2
+    if not isinstance(target_size, (list, tuple)):
+        target_size_here = [target_size] * dimensionality
+    else:
+        assert len(target_size) == dimensionality, \
+            "If you give a tuple/list as target size, make sure it has " \
+            "the same dimensionality as data!"
+        target_size_here = list(target_size)
+    data, seg = crop(data, seg, crop_size=crop_size, crop_type="random",
+                     **crop_kwargs)
+    data, seg = resize_data_and_seg(data, size=target_size_here, seg=seg,
+                                    **resize_kwargs)
+    return data, seg
