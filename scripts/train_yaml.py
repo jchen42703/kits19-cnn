@@ -3,6 +3,7 @@ from catalyst.dl.runner import SupervisedRunner
 from kits19cnn.experiments import TrainSegExperiment, TrainClfSegExperiment3D, \
                                   TrainSegExperiment2D, TrainClfSegExperiment2D, \
                                   seed_everything
+from kits19cnn.visualize import plot_metrics, save_figs
 
 def main(config):
     """
@@ -42,6 +43,10 @@ def main(config):
     runner.train(model=exp.model, criterion=exp.criterion, optimizer=exp.opt,
                  scheduler=exp.lr_scheduler, loaders=exp.loaders,
                  callbacks=exp.cb_list, **config["runner_params"])
+
+    figs = plot_metrics(logdir=config["runner_params"]["logdir"],
+                        metrics=config["plot_params"]["metrics"])
+    save_figs(figs, save_dir=config["plot_params"]["save_dir"])
 
 if __name__ == "__main__":
     import yaml

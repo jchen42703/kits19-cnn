@@ -100,3 +100,11 @@
     checkpoint_params:
       checkpoint_path: ~ #/content/logs/segmentation/checkpoints/last.pth #/content/logs/segmentation/checkpoints/last_full.pth
       mode: model_only
+
+  plot_params:
+    metrics:
+      - loss/epoch
+      # - ppv/class_0/epoch
+      # - f1/class_0/epoch
+      # - tpr/class_0/epoch
+    save_dir: /content/logs/segmentation/
