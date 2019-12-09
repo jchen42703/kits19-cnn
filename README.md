@@ -1,5 +1,8 @@
 # kits19-cnn
-Using convolutional neural networks for the [2019 Kidney and Kidney Tumor Segmentation Challenge](https://kits19.grand-challenge.org/).
+Using 2D & 3D convolutional neural networks for the [2019 Kidney and Kidney Tumor Segmentation Challenge](https://kits19.grand-challenge.org/).
+
+![Label](images/label_case_00113.png)
+![Prediction from 2D U-Net (ResNet34)](images/pred2d_case_00113.png)
 
 ## Disclaimer
 I'm not sure why the tumor scores are so low for all of the architectures, so I'm open to any suggestions and PRs! Am actively working on improving them.
