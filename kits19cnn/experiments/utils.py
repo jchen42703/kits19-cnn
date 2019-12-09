@@ -102,10 +102,11 @@ def get_training_augmentation(augmentation_key="aug1"):
     transform_dict["tu_only2d2"] = [new_t[0]] + transform_dict["tu_only2d"][1:-2] \
                                    + [new_t[1]] + [transform_dict["tu_only2d"][-1]]
     # adding RandomResizedCropTransform to the end
-    # spatial, mirror, gamma, brightness, removelabel, random_resized_crop
+    # spatial, mirror, gamma, brightness, random_resized_crop, removelabel
     rand_resized_t = RandomResizedCropTransform(target_size=(256, 256),
                                                 p_per_sample=0.33)
-    transform_dict["tu_only2d3"] = transform_dict["tu_only2d2"] + [rand_resized_t]
+    transform_dict["tu_only2d3"] = deepcopy(transform_dict["tu_only2d2"])
+    transform_dict["tu_only2d3"].insert(-2, rand_resized_t)
 
     train_transform = transform_dict[augmentation_key]
     print(f"Train Transforms: {train_transform}")

@@ -90,7 +90,7 @@ class RandomResizedCropTransform(AbstractTransform):
 
         data_dict[self.data_key] = data
         if seg is not None:
-            data_dict[self.label_key] = seg
+            data_dict[self.label_key] = seg.astype(np.float32)
 
         return data_dict
 
