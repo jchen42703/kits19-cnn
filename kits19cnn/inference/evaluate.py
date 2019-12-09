@@ -1,41 +1,72 @@
+from tqdm import tqdm
 import numpy as np
 import nibabel as nib
 import pandas as pd
-
+import os
 from os.path import isdir, join
-from kits19cnn.models.metrics import evaluate_official
-from sklearn.metrics import precision_recall_fscore_support
 from pathlib import Path
+
+from kits19cnn.metrics import evaluate_official
+from sklearn.metrics import precision_recall_fscore_support
 
 class Evaluator(object):
     """
     Evaluates all of the predictions in a user-specified directory and logs them in a csv. Assumes that
     the output is in the KiTS19 file structure.
     """
-    def __init__(self, orig_img_dir, pred_dir, cases=None):
+    def __init__(self, orig_img_dir, pred_dir, cases=None,
+                 label_file_ending=".npy", binary_tumor=False):
         """
         Attributes:
-            orig_img_dir: path to the original kits19/data directory
+            orig_img_dir: path to the directory containing the
+                labels to evaluate with
+                i.e. original kits19/data directory or the preprocessed imgs
+                directory
+                assumes structure:
+                orig_img_dir
+                    case_xxxxx
+                        imaging{file_ending}
+                        segmentation{file_ending}
             pred_dir: path to the predictions directory, created by Predictor
-            cases: list of filepaths to case folders or just case folder names
+                assumes structure:
+                pred_dir
+                    case_xxxxx
+                        pred.npy
+                        act.npy
+            cases: list of filepaths to case folders or just case folder names.
+                Defaults to None.
+            label_file_ending (str): one of ['.npy', '.nii', '.nii.gz']
+            binary_tumor (bool): whether or not to treat predicted 1s as tumor
         """
         self.orig_img_dir = orig_img_dir
         self.pred_dir = pred_dir
+        self.file_ending = label_file_ending
+        assert self.file_ending in [".npy", ".nii", ".nii.gz"], \
+            "label_file_ending must be one of [''.npy', '.nii', '.nii.gz']"
         # converting cases from filepaths to raw folder names
         if cases is None:
             self.cases_raw = [case \
                               for case in os.listdir(self.pred_dir) \
                               if case.startswith("case")]
-            assert len(self.cases) > 0, "Please make sure that orig_img_dir refers to the kits19/data directory."
+            assert len(self.cases_raw) > 0, \
+                "Please make sure that pred_dir has the case folders"
         elif cases is not None:
             # extracting raw cases from filepath cases
             cases_raw = [Path(case).name for case in cases]
             # filtering them down to only cases in pred_dir
-            self.cases_raw = [case for case in cases_raw if isdir(join(self.pred_dir, case))]
+            self.cases_raw = [case for case in cases_raw \
+                              if isdir(join(self.pred_dir, case))]
+        self.binary_tumor = binary_tumor
+        if self.binary_tumor:
+            print("Evaluating predicted 1s as tumor (changed to 2).")
 
-    def evaluate_all(self):
+    def evaluate_all(self, print_metrics=False):
         """
-        Evaluates all cases and creates the results.csv, which stores all of the metrics and the averages.
+        Evaluates all cases and creates the results.csv, which stores all of
+        the metrics and the averages.
+        Args:
+            print_metrics (bool): whether or not to print metrics.
+                Defaults to False to be cleaner with tqdm.
         """
         metrics_dict = {"cases": [],
                         "tk_dice": [], "tu_dice": [],
@@ -43,18 +74,70 @@ class Evaluator(object):
                         "fpr": [], "orig_shape": [],
                         "support": [], "pred_support": []}
 
-        for (i, case) in enumerate(self.cases_raw):
-            print("Evaluating {0}/{1}: {2}".format(i+1, len(self.cases_raw), case))
+        for case in tqdm(self.cases_raw):
             # loading the necessary arrays
-            label = nib.load(join(self.orig_img_dir, case, "segmentation.nii.gz")).get_fdata()
-            save_name = "pred_{0}.npy".format(case)
-            pred = np.load(join(self.pred_dir, case, save_name))
-            metrics_dict = self.evaluate_with_all_metrics_per_case(metrics_dict, label, pred, case)
+            label, pred = self.load_masks_and_pred(case)
+            metrics_dict = self.eval_all_metrics_per_case(metrics_dict, label,
+                                                          pred, case,
+                                                          print_metrics)
 
         metrics_dict = self.round_all(self.average_all_cases_per_metric(metrics_dict))
         df = pd.DataFrame(metrics_dict)
-        df.to_csv(join(self.pred_dir, "results.csv"))
-        print("Done!")
+        metrics_path = join(self.pred_dir, "results.csv")
+        print(f"Saving {metrics_path}...")
+        df.to_csv(metrics_path)
+
+    def load_masks_and_pred(self, case):
+        """
+        Loads mask and prediction from `case`
+        Args:
+            case (str): case folder names to use
+        Returns:
+            label (np.ndarray): shape (x, y, z)
+            pred (np.ndarray): shape (x, y, z)
+        """
+        y_path = join(self.orig_img_dir, case, f"segmentation{self.file_ending}")
+        if self.file_ending == ".npy":
+            label = np.load(y_path)
+        elif self.file_ending == ".nii.gz" or self.file_ending == ".nii":
+            label = nib.load(y_path).get_fdata()
+        pred = np.load(join(self.pred_dir, case, "pred.npy")).squeeze()
+        if self.binary_tumor:
+            # treating prediced 1s as tumor (2)
+            pred[pred == 1] = 2
+        return (label, pred)
+
+    def eval_all_metrics_per_case(self, metrics_dict, y_true, y_pred,
+                                  case, print_metrics=False):
+        """
+        Calculates the official metrics, precision, recall, specificity (fpr),
+        and stores some metadata such as the original shape and support
+        (# of pixels for each class). They are then appended to the main
+        metrics dictionary that is to become results.csv.
+        """
+        # calculating metrics
+        tk_dice, tu_dice = evaluate_official(y_true, y_pred)
+        prec, recall, _, supp = precision_recall_fscore_support(y_true.ravel(),
+                                                                y_pred.ravel(),
+                                                                labels=[0, 1, 2])
+        pred_supp = np.unique(y_pred, return_counts=True)[-1]
+        fpr = 1-recall
+        orig_shape = y_true.shape
+
+        if print_metrics:
+            print(f"PPV: {prec}\nTPR: {recall}\nSupp: {supp}")
+            print(f"Tumour and Kidney Dice: {tk_dice}; Tumour Dice: {tu_dice}")
+        # order for appending (sorted keys)
+        # ['cases', 'fpr', 'orig_shape', 'precision', 'pred_support', 'recall',
+        # 'support', 'tk_dice', 'tu_dice']
+        append_list = [case, fpr, orig_shape, prec, pred_supp, recall, supp,
+                       tk_dice, tu_dice]
+        sorted_keys = sorted(metrics_dict.keys())
+        assert len(append_list) == len(sorted_keys)
+        # appending to each key's list
+        for (key_, value_) in zip(sorted_keys, append_list):
+            metrics_dict[key_].append(value_)
+        return metrics_dict
 
     def average_all_cases_per_metric(self, metrics_dict):
         """
@@ -65,32 +148,12 @@ class Evaluator(object):
             if key == "cases":
                 pass
             else:
-                # axis=0 will make it so that each sub-axis of orig_shape and support will be averaged
-                metrics_dict[key].append(np.mean(metrics_dict[key], axis=0))
-        return metrics_dict
-
-    def evaluate_with_all_metrics_per_case(self, metrics_dict, y_true, y_pred, case):
-        """
-        Calculates the official metrics, precision, recall, specificity (fpr), and stores some
-        metadata such as the original shape and support (# of pixels for each class). They are then appended
-        to the main metrics dictionary that is to become results.csv.
-        """
-        # calculating metrics
-        tk_dice, tu_dice = evaluate_official(y_true, y_pred)
-        prec, recall, _, supp = precision_recall_fscore_support(y_true.ravel(), y_pred.ravel(), labels=[0, 1, 2])
-        pred_supp = np.unique(y_pred, return_counts=True)[-1]
-        print("precision: {1}\nrecall: {2}\nsupport: {3}".format(case, prec, recall, supp))
-        print("Tumour and Kidney Dice: {0}; Tumour Dice: {1}".format(tk_dice, tu_dice))
-        print("Shape: {0}\n".format(y_true.shape))
-        assert y_true.shape == y_pred.shape
-
-        # appending to each key's list
-        metrics_dict["cases"].append(case)
-        metrics_dict["tk_dice"].append(tk_dice), metrics_dict["tu_dice"].append(tu_dice)
-        metrics_dict["precision"].append(prec), metrics_dict["recall"].append(recall)
-        metrics_dict["fpr"].append(1-recall), metrics_dict["orig_shape"].append(y_true.shape),
-        metrics_dict["support"].append(supp), metrics_dict["pred_support"].append(pred_supp)
-
+                # axis=0 will make it so that each sub-axis of orig_shape and
+                # support will be averaged
+                try:
+                    metrics_dict[key].append(np.mean(metrics_dict[key], axis=0))
+                except:
+                    metrics_dict[key].append("N/A")
         return metrics_dict
 
     def round_all(self, metrics_dict):
@@ -98,8 +161,9 @@ class Evaluator(object):
         Rounding all relevant metrics to three decimal places for cleanliness.
         """
         for key in list(metrics_dict.keys()):
-            if key in ["cases", "orig_shape", "support", "pred_support"]:
+            if key in ["cases", "pred_support"]:
                 pass
             else:
-                metrics_dict[key] = np.round(metrics_dict[key], decimals=3).tolist()
+                metrics_dict[key] = np.round(metrics_dict[key],
+                                             decimals=3).tolist()
         return metrics_dict

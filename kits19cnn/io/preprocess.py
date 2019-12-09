@@ -1,53 +1,62 @@
 import os
+from os.path import join, isdir
+from pathlib import Path
+from collections import defaultdict
+from tqdm import tqdm
 import nibabel as nib
 import numpy as np
-import pandas as pd
-from pathlib import Path
-from os.path import join, isdir
+import json
+
+from kits19cnn.io.resample import resample_patient
 
 class Preprocessor(object):
     """
-    2D Preprocessing:
+    Preprocesses the original dataset (interpolated).
+    Procedures:
         * clipping (ROI)
-            * allow ability to specify intensities
-            * have ability to automatically do it
-        * crop images to the nonint region (percentile_005)
-        * mean_std_norm based on whole dset stats
-            * allow ability to specify intensities
-            * have ability to automatically do it
         * save as .npy array
             * imaging.npy
-            * segmentation.npy
-        * saves the crop coordinates in out_dir as "coords.csv"
-    3D Preprocessing:
-        2D Preprocessing but resample to median spacing beforehand
-        Need to figure out how to uninterpolate
+            * segmentation.npy (if with_masks)
+        * resampling from `orig_spacing` to `target_spacing`
+            currently uses spacing reported in the #1 solution
     """
-    def __init__(self, in_dir, out_dir, clip_values=None, cases=None):
+    def __init__(self, in_dir, out_dir, cases=None, kits_json_path=None,
+                 target_spacing=(3.22, 1.62, 1.62),
+                 clip_values=None, with_mask=False, fg_classes=[1, 2]):
         """
         Attributes:
-            in_dir (str): directory with the input data. Should be the kits19/data directory.
+            in_dir (str): directory with the input data. Should be the
+                kits19/data directory.
             out_dir (str): output directory where you want to save each case
-            clip_values (list, tuple): values you want to clip CT scans to
-                * For whole dset, the [0.5, 99.5] percentiles are [-75.75658734213053, 349.4891265535317]
             cases: list of case folders to preprocess
+            kits_json_path (str): path to the kits.json file in the kits19/data
+                directory. This only should be specfied if you're resampling.
+                Defaults to None.
+            target_spacing (list/tuple): spacing to resample to
+            clip_values (list, tuple): values you want to clip CT scans to.
+                Defaults to None for no clipping.
+            with_mask (bool): whether or not to preprocess with masks or no
+                masks. Applicable to preprocessing test set (no labels
+                available).
+            fg_classes (list): of foreground class indices
         """
         self.in_dir = in_dir
         self.out_dir = out_dir
 
-        if clip_values is None:
-            # automatically getting high/low values to clip to
-            self.clip_values = self.get_clip_values()
-        else:
-            self.clip_values = clip_values
-
+        self._load_kits_json(kits_json_path)
+        self.clip_values = clip_values
+        self.target_spacing = np.array(target_spacing)
+        self.with_mask = with_mask
+        self.fg_classes = fg_classes
         self.cases = cases
         # automatically collecting all of the case folder names
         if self.cases is None:
             self.cases = [os.path.join(self.in_dir, case) \
                           for case in os.listdir(self.in_dir) \
                           if case.startswith("case")]
-            assert len(self.cases) > 0, "Please make sure that in_dir refers to the kits19/data directory."
+            self.cases = sorted(self.cases)
+            assert len(self.cases) > 0, \
+                "Please make sure that in_dir refers to the proper directory."
         # making directory if out_dir doesn't exist
         if not isdir(out_dir):
             os.mkdir(out_dir)
@@ -61,40 +70,48 @@ class Preprocessor(object):
         Returns:
             preprocessed input image and mask
         """
-        coords_dict = {"cases": [],
-                      "z_lb": [], "z_ub": [],
-                      "x_lb": [], "x_ub": [],
-                      "y_lb": [], "y_ub": [],
-                      "orig_z": [], "orig_x": [], "orig_y": [],
-                      }
         # Generating data and saving them recursively
-        for (i, case) in enumerate(self.cases):
-            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            image = nib.load(join(case, "imaging.nii.gz")).get_fdata()
-            label = nib.load(join(case, "segmentation.nii.gz")).get_fdata()
-            preprocessed_img, preprocessed_label, coords = self.preprocess_2d(image, label)
-            orig_shape = image.shape # need this for inference
+        for case in tqdm(self.cases):
+            x_path, y_path = join(case, "imaging.nii.gz"), join(case, "segmentation.nii.gz")
+            image = nib.load(x_path).get_fdata()[None]
+            label = nib.load(y_path).get_fdata()[None] if self.with_mask \
+                    else None
+            preprocessed_img, preprocessed_label = self.preprocess(image,
+                                                                   label,
+                                                                   case)
+
             self.save_imgs(preprocessed_img, preprocessed_label, case)
-            coords_dict = self.append_to_coords_dict(coords_dict, case, coords, orig_shape)
-        df = pd.DataFrame(coords_dict)
-        df.to_csv(join(self.out_dir, "coords.csv"))
-        print("Done!")
 
-    def preprocess_2d(self, image, mask):
+    def preprocess(self, image, mask, case=None):
         """
-        Procedure:
-        1) Clipping to specified values. Defaults to [0.5, 99.5 percentiles].
-        2) Cropping out non-0.5-percentile region
-
+        Clipping, cropping, and resampling.
         Args:
             image: numpy array
-            mask: numpy array
+            mask: numpy array or None
+            case (str): path to a case folder
         Returns:
-            tuple(preprocessed (image, label), list of lists of coords)
+            tuple of:
+                - preprocessed image
+                - preprocessed mask or None
         """
-        clipped = np.clip(image, self.clip_values[0], self.clip_values[1])
-        cropped_and_coords = extract_nonint_region(clipped, mask, outside_value=self.clip_values[0])
-        return cropped_and_coords
+        raw_case = Path(case).name # raw case name, i.e. case_00000
+        if self.target_spacing is not None:
+            for info_dict in self.kits_json:
+                # guaranteeing that the info is corresponding to the right
+                # case
+                if info_dict["case_id"] == raw_case:
+                    case_info_dict = info_dict
+                    break
+            orig_spacing = (case_info_dict["captured_slice_thickness"],
+                            case_info_dict["captured_pixel_width"],
+                            case_info_dict["captured_pixel_width"])
+            image, mask = resample_patient(image, mask, np.array(orig_spacing),
+                                           target_spacing=self.target_spacing)
+        if self.clip_values is not None:
+            image = np.clip(image, self.clip_values[0], self.clip_values[1])
+
+        mask = mask[None] if mask is not None else mask
+        return (image[None], mask)
 
     def save_imgs(self, image, mask, case):
         """
@@ -112,103 +129,112 @@ class Preprocessor(object):
         # checking to make sure that the output directories exist
         if not isdir(out_case_dir):
             os.mkdir(out_case_dir)
-            print("Created directory: {0}".format(out_case_dir))
 
         np.save(os.path.join(out_case_dir, "imaging.npy"), image)
-        np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
-        print("Saving: {0}".format(case))
+        if mask is not None:
+            np.save(os.path.join(out_case_dir, "segmentation.npy"), mask)
 
-    def append_to_coords_dict(self, coords_dict, case, coords, orig_shape):
+    def save_dir_as_2d(self):
         """
-        Simple function to append the coords and cases to the coords_dict.
+        Takes preprocessed 3D numpy arrays and saves them as slices
+        in the same directory.
+        """
+        self.pos_slice_dict = {}
+        # Generating data and saving them recursively
+        for case in tqdm(self.cases):
+            # assumes the .npy files have shape: (n_channels, d, h, w)
+            image = np.load(join(case, "imaging.npy"))
+            label = np.load(join(case, "segmentation.npy"))
+            image = image.squeeze(axis=0) if len(image.shape)==5 else image
+            label = label.squeeze(axis=0) if len(label.shape)==5 else label
+
+            self.save_3d_as_2d(image, label, case)
+        self._save_pos_slice_dict()
+
+    def save_3d_as_2d(self, image, mask, case):
+        """
+        Saves an image and mask pair as .npy arrays in the
+        KiTS19 file structure
         Args:
-            coords_dict: dictionary containing all of the coordinates
-            case (str): case folder name
-            coords: list of [lower bound, upper bound]
-        Returns:
-            new coords_dict with the append coordinates
+            image: numpy array
+            mask: numpy array
+            case: path to a case folder (each element of self.cases)
         """
-        # case comes in as a filepath, so let's just get the case id
+        # saving the generated dataset
+        # output dir in KiTS19 format
+        # extracting the raw case folder name
         case = Path(case).name
-        # unpacking coords (list of lists of [lower bound, upper bound])
-        # lb = lower bound, ub = upper bound
-        z_lb, z_ub = coords[0]
-        x_lb, x_ub = coords[1]
-        y_lb, y_ub = coords[2]
-        orig_z, orig_x, orig_y = orig_shape
-        coords_dict["cases"].append(case)
-        coords_dict["z_lb"].append(z_lb), coords_dict["z_ub"].append(z_ub)
-        coords_dict["x_lb"].append(x_lb), coords_dict["x_ub"].append(x_ub)
-        coords_dict["y_lb"].append(y_lb), coords_dict["y_ub"].append(y_ub)
-        coords_dict["orig_z"].append(orig_z), coords_dict["orig_x"].append(orig_x), coords_dict["orig_y"].append(orig_y)
+        out_case_dir = join(self.out_dir, case)
+        # checking to make sure that the output directories exist
+        if not isdir(out_case_dir):
+            os.mkdir(out_case_dir)
 
-        return coords_dict
+        # iterates through all slices and saves them individually as 2D arrays
+        fg_indices = defaultdict(list)
+        if mask.shape[1] <= 1:
+            print("WARNING: Please double check your mask shape;",
+                  f"Masks have shape {mask.shape} when it should be",
+                  "shape (n_channels, d, h, w)")
+            raise Exception("Please fix shapes.")
+        for slice_idx in range(mask.shape[1]):
+            label_slice = mask[:, slice_idx]
+            # appending fg slice indices
+            for idx in self.fg_classes:
+                if (label_slice == idx).any():
+                    fg_indices[idx].append(slice_idx)
+            # naming convention: {type of slice}_{case}_{slice_idx}
+            slice_idx_str = str(slice_idx)
+            # adding 0s to slice_idx until it reaches 3 digits,
+            # so sorting files is easier when stacking
+            while len(slice_idx_str) < 3:
+                slice_idx_str = "0"+slice_idx_str
+            np.save(join(out_case_dir, f"imaging_{slice_idx_str}.npy"),
+                    image[:, slice_idx])
+            np.save(join(out_case_dir, f"segmentation_{slice_idx_str}.npy"),
+                    label_slice)
+        # {case1: [idx1, idx2,...], case2: ...}
+        self.pos_slice_dict[case] = fg_indices
 
-    def get_clip_values(self):
+    def _save_pos_slice_dict(self):
         """
-        Automatically gathers the low/high values to clip to
-        Returns:
-            clip_values (tuple): [0.5, 99.5] percentiles of the ROI pixels to clip to
+        Saves the foreground (positive) class dictionaries:
+            - slice_indices.json
+                saves the slice indices per class
+                    {
+                        case: {fg_class1: [slice indices...],
+                               fg_class2: [slice indices...],
+                               ...}
+                    }
+            - slice_indices_general.json
+                saves the slice indices for all foreground classes into a
+                    single list
+                    {case: [slice indices...],}
         """
-        pixels = self.gather_roi_pixels()
-        # The [0.5, 99.5] percentiles to clip to
-        clip_values = (np.percentile(pixels, 0.5), np.percentile(pixels, 99.5))
-        print("0.5 Percentile: {0}\n99.5 Percentile: {1}".format(percentiles[0], percentiles[1]))
-        return clip_values
+        # converting pos_slice_dict to general_slice_dict
+        general_slice_dict = defaultdict(list)
+        for case, slice_idx_dict in self.pos_slice_dict.items():
+            for slice_idx_list in list(slice_idx_dict.values()):
+                for slice_idx in slice_idx_list:
+                    general_slice_dict[case].append(slice_idx)
 
-    def gather_roi_pixels(self):
-        """
-        Collects all of the segmentation ROI pixels in a numpy array.
-        Returns:
-            pixels (numpy array):
-        """
-        pixels = np.array([])
-        for (i, case) in enumerate(self.cases):
-            print("Processing {0}/{1}: {2}".format(i+1, len(self.cases), case))
-            x = nib.load(os.path.join(self.in_dir, case, "imaging.nii.gz")).get_fdata()
-            y = nib.load(os.path.join(self.in_dir, case, "segmentation.nii.gz")).get_fdata()
-            overlap = x * y
-            pixels = np.append(pixels, overlap[overlap != 0].flatten())
-        return pixels
+        save_path = join(self.out_dir, "slice_indices.json")
+        save_path_general = join(self.out_dir, "slice_indices_general.json")
+        # saving the dictionaries
+        print(f"Logged the slice indices for each class in {self.fg_classes} at"
+              f"{save_path}.")
+        with open(save_path, "w") as fp:
+            json.dump(self.pos_slice_dict, fp)
+        print("Logged slice indices for all fg classes instead of for each",
+              f"class separately at {save_path_general}.")
+        with open(save_path_general, "w") as fp:
+            json.dump(general_slice_dict, fp)
 
-def extract_nonint_region(image, mask=None, outside_value=0):
-    """
-    Resizing image around a specified region (i.e. nonzero region)
-    Args:
-        image: shape (x, y, z)
-        mask: a segmentation labeled mask that is the same shaped as 'image' (optional; default: None)
-        outside_value: (optional; default: 0)
-    Returns:
-        the resized image
-        segmentation mask (when mask is not None)
-        a nested list of the mins and and maxes of each axis (when coords = True)
-    """
-    # Copyright 2017 Division of Medical Image Computing, German Cancer Research Center (DKFZ)
-    #
-    # Licensed under the Apache License, Version 2.0 (the "License");
-    # you may not use this file except in compliance with the License.
-    # You may obtain a copy of the License at
-    #
-    #     http://www.apache.org/licenses/LICENSE-2.0
-    #
-    # Unless required by applicable law or agreed to in writing, software
-    # distributed under the License is distributed on an "AS IS" BASIS,
-    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    # See the License for the specific language governing permissions and
-    # limitations under the License.
-    # ===================================================================================================
-    # Changes: Added the ability to return the cropping coordinates
-    pos_idx = np.where(image != outside_value)
-    # fetching all of the min/maxes for each axes
-    pos_x, pos_y, pos_z = pos_idx[1], pos_idx[2], pos_idx[0]
-    minZidx, maxZidx = int(np.min(pos_z)), int(np.max(pos_z)) + 1
-    minXidx, maxXidx = int(np.min(pos_x)), int(np.max(pos_x)) + 1
-    minYidx, maxYidx = int(np.min(pos_y)), int(np.max(pos_y)) + 1
-    # resize images
-    resizer = (slice(minZidx, maxZidx), slice(minXidx, maxXidx), slice(minYidx, maxYidx))
-    coord_list = [[minZidx, maxZidx], [minXidx, maxXidx], [minYidx, maxYidx]]
-    # returns cropped outputs with the bbox coordinates
-    if mask is not None:
-        return (image[resizer], mask[resizer], coord_list)
-    elif mask is None:
-        return (image[resizer], coord_list)
+    def _load_kits_json(self, json_path):
+        """
+        Loads the kits.json file into `self.kits_json`
+        """
+        if json_path is None:
+            print("`kits_json_path is empty, so not resampling.`")
+        elif json_path is not None:
+            with open(json_path, "r") as fp:
+                self.kits_json = json.load(fp)

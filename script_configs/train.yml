@@ -1,0 +1,112 @@
+  mode: segmentation # classification # both
+  dim: 3 # 2
+  data_folder: /content/kits_preprocessed/ #/content/kits19/data
+
+  runner_params:
+    logdir: /content/logs/segmentation/
+    num_epochs: 85
+    fp16: False
+    verbose: True
+
+  io_params:
+    test_size: 0.2
+    split_seed: 200
+    batch_size: 2
+    num_workers: 2
+    aug_key: aug2
+    file_ending: .npy
+    # slice_indices_path: /content/kits_preprocessed/slice_indices.json # 2D
+    # p_pos_per_sample: 0.33 # 2D
+    # pseudo_3D: False
+    # num_pseudo_slices: 7
+
+  criterion_params:
+    loss: ce_dice_loss
+    ce_dice_loss:
+      soft_dice_kwargs:
+        batch_dice: True
+        smooth: 0.00001 #1e-5
+        do_bg: False
+        square: False
+      ce_kwargs: {}
+    # for clf_seg
+    # seg_loss: ce_dice_loss
+    # ce_dice_loss:
+      # soft_dice_kwargs:
+      #   batch_dice: True
+        # smooth: 0.00001 #1e-5
+      #   do_bg: False
+      #   square: False
+      # ce_kwargs: {}
+    # clf_loss: bce_dice_loss
+    # bce_dice_loss:
+      # eps: 0.0000001 # 1e-7
+      # activation: sigmoid
+
+  model_params:
+    architecture: nnunet
+    nnunet:
+      input_channels: 1
+      base_num_features: 30
+      num_classes: 3
+      num_pool: 5
+      num_conv_per_stage: 2
+      feat_map_mul_on_downscale: 2
+      deep_supervision: False
+      convolutional_pooling: True
+      convolutional_upsampling: True
+      max_num_features: 320
+      classification: False #True
+      dropout_op_kwargs:
+        p: 0
+        inplace: True
+    ## 2D ONLY
+    # encoder: resnet34
+    # unet_smp:
+    #   attention_type: ~ # scse
+    #   classes: 3
+    #   decoder_use_batchnorm: True # inplace for InplaceABN
+    # fpn_smp:
+    #   classes: 3
+    #   dropout: 0.2
+
+  opt_params:
+    opt: SGD
+    SGD:
+      lr: 0.0001
+      momentum: 0.9
+      weight_decay: 0.0001
+    scheduler_params:
+      scheduler: ReduceLROnPlateau
+      ReduceLROnPlateau:
+        factor: 0.15
+        patience: 30 #2
+        mode: min
+        verbose: True
+        threshold: 0.001
+        threshold_mode: abs
+
+  callback_params:
+    EarlyStoppingCallback:
+      patience: 60
+      min_delta: 0.001
+    # AccuracyCallback:
+    #   threshold: 0.5
+    #   activation: Softmax
+    # PrecisionRecallF1ScoreCallback:
+    #   num_classes: 3
+    #   threshold: 0.5
+    #   activation: Softmax
+    checkpoint_params:
+      checkpoint_path: ~ #/content/logs/segmentation/checkpoints/last.pth #/content/logs/segmentation/checkpoints/last_full.pth
+      mode: model_only
+
+  # specify if you want to save plotly plots as .pngs
+  ## Requires separate installation of xvfb on Colab.
+  # plot_params:
+  #   metrics:
+  #     - loss/epoch
+  #     # - ppv/class_0/epoch
+  #     # - f1/class_0/epoch
+  #     # - tpr/class_0/epoch
+  #   save_dir: /content/logs/segmentation/
