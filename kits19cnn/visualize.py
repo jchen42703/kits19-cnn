@@ -157,7 +157,7 @@ def save_figs(figs_list, save_dir=None):
         train_metric_name = fig["data"][0]["name"]
         split = train_metric_name.split("/")
         metric_name = "".join([f"{name}_" for name in split
-                               if not name in ["train", "val"]])[:-1]
+                               if not name in ["train", "valid"]])[:-1]
         save_name = os.path.join(save_dir, f"{metric_name}.png")
         fig.write_image(save_name)
         print(f"Saved {save_name}...")
