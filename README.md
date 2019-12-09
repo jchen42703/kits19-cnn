@@ -7,19 +7,44 @@ Using 2D & 3D convolutional neural networks for the [2019 Kidney and Kidney Tumo
 ## Disclaimer
 I'm not sure why the tumor scores are so low for all of the architectures, so I'm open to any suggestions and PRs! Am actively working on improving them.
 
-## Downloading the Dataset
-The recommended way is to just follow the instructions on the [original kits19 Github challenge page](https://github.com/neheller/kits19), which utilizes `git lfs`.
-Here is a brief run-down for Google Colaboratory:
-```
-! sudo add-apt-repository ppa:git-core/ppa
-! curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
-! sudo apt-get install git-lfs
-! git lfs install
-% cd "/content/"
-! rm -r kits19
-! git clone https://github.com/neheller/kits19.git
-# takes roughly 11 minutes to download
-```
+## Credits
+Major credits to:
+* Isensee's [nnU-Net](https://github.com/MIC-DKFZ/nnUNet) and [batchgenerators](https://github.com/MIC-DKFZ/batchgenerators)
+* qubvel's [segmentation_models.pytorch](https://github.com/qubvel/segmentation_models.pytorch)
+* Nick Heller for hosting KiTS19!
+
+## Torch/Catalyst Pipeline (Overview)
+### Preprocessing
+* Resampling to 3.22 × 1.62 × 1.62 mm
+* Isensee's nnU-Net methodology
+  * Clipping to the [0.5, 99.5] percentiles and applying z-score standardization
+
+### Training
+* Foreground class sampling
+  * __2D:__ Done by sampling per slice (loading only 2D arrays)
+    * __SO MUCH FASTER THAN LOADING 3D ARRAYS__
+      * Difference: 3 seconds v. 5 minutes per epoch
+  * __3D:__ Done through `ROICropTransform`
+* Data Augmentation
+  * Located in `kits19cnn/experiments/utils.py`
+    * Pay attention to the `augmentation_key`s in `get_training_augmentation` and `get_validation_augmentation`
+  * Done through `batchgenerators` + my own custom transforms
+* SGD (lr=1e-4) and LRPlateau (factor=0.15 and patience=5); BCEDiceLoss
+  * 2D: batch size = 18 (regular training)
+  * 3D: batch size = 4 (fp16 training)
+
+### Architectures
+* 2D (patch size: (256, 256))
+  * Vanilla 2D nnU-Net
+    * 6 pools with convolutional downsampling and upsampling
+    * max number of filters set to 320 and the starting number is 30
+  * 2D U-Net with pretrained ImageNet classifiers
+  * 2D FPN with pretrained ImageNet classifiers
+* 3D (patch size: (96, 160, 160))
+  * 3D nnU-Net
+    * 5 pools with convolutional downsampling and upsampling
+    * max number of filters set to 320 and the starting number is 30
+  * 3D nnU-Net (Classification + Segmentation)
 
 ## Results
 <table>
@@ -66,6 +91,20 @@ Here is a brief run-down for Google Colaboratory:
 
 
 ## How to Use
+
+### Downloading the Dataset
+The recommended way is to just follow the instructions on the [original kits19 Github challenge page](https://github.com/neheller/kits19), which utilizes `git lfs`.
+Here is a brief run-down for Google Colaboratory:
+```
+! sudo add-apt-repository ppa:git-core/ppa
+! curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+! sudo apt-get install git-lfs
+! git lfs install
+% cd "/content/"
+! rm -r kits19
+! git clone https://github.com/neheller/kits19.git
+# takes roughly 11 minutes to download
+```
 
 ### Preprocessing
 To do general preprocessing (resampling):
@@ -181,36 +220,3 @@ python /content/kits19-cnn/scripts/evaluate.py --yml_path="/content/kits19-cnn/s
 
 ### Submission
 Currently, only on the `preprocess-test-set` branch.
-
-## Torch/Catalyst Pipeline (Overview)
-### Preprocessing
-* Resampling to 3.22 × 1.62 × 1.62 mm
-* Isensee's nnU-Net methodology
-  * Clipping to the [0.5, 99.5] percentiles and applying z-score standardization
-
-### Training
-* Foreground class sampling
-  * __2D:__ Done by sampling per slice (loading only 2D arrays)
-    * __SO MUCH FASTER THAN LOADING 3D ARRAYS__
-      * Difference: 3 seconds v. 5 minutes per epoch
-  * __3D:__ Done through `ROICropTransform`
-* Data Augmentation
-  * Located in `kits19cnn/experiments/utils.py`
-    * Pay attention to the `augmentation_key`s in `get_training_augmentation` and `get_validation_augmentation`
-  * Done through `batchgenerators` + my own custom transforms
-* SGD (lr=1e-4) and LRPlateau (factor=0.15 and patience=5); BCEDiceLoss
-  * 2D: batch size = 18 (regular training)
-  * 3D: batch size = 4 (fp16 training)
-
-### Architectures
-* 2D (patch size: (256, 256))
-  * Vanilla 2D nnU-Net
-    * 6 pools with convolutional downsampling and upsampling
-    * max number of filters set to 320 and the starting number is 30
-  * 2D U-Net with pretrained ImageNet classifiers
-  * 2D FPN with pretrained ImageNet classifiers
-* 3D (patch size: (96, 160, 160))
-  * 3D nnU-Net
-    * 5 pools with convolutional downsampling and upsampling
-    * max number of filters set to 320 and the starting number is 30
-  * 3D nnU-Net (Classification + Segmentation)
