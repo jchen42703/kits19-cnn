@@ -1,5 +1,5 @@
 # kits19-cnn
-Using 2D & 3D convolutional neural networks for the [2019 Kidney and Kidney Tumor Segmentation Challenge](https://kits19.grand-challenge.org/).
+Using 2D & 3D convolutional neural networks for the [2019 Kidney and Kidney Tumor Segmentation Challenge](https://kits19.grand-challenge.org/). This repository is associated with this [conference paper (older version)](https://www.researchgate.net/publication/336247303_A_2D_U-Net_for_Automated_Kidney_and_Renal_Tumor_Segmentation).
 
 ![Label](images/label_case_00113.png)
 ![Prediction from 2D U-Net (ResNet34)](images/pred2d_case_00113.png)
