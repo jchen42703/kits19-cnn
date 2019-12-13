@@ -7,11 +7,11 @@ from kits19cnn.visualize import plot_metrics, save_figs
 
 def main(config):
     """
-    Main code for training a classification model.
+    Main code for training a classification/seg/classification+seg model.
 
     Args:
         config (dict): dictionary read from a yaml file
-            i.e. experiments/finetune_classification.yml
+            i.e. script/configs/train.yml
     Returns:
         None
     """
