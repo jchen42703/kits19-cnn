@@ -46,15 +46,18 @@ class SegClfBCEDiceLoss(DiceLoss):
         dice = super().forward(y_pr, y_gt)
         bce = self.bce_with_logits(y_pr, y_gt)
         y_gt = 1 if (y_gt>0).any() else 0
-        clf_bce = self.bce(self.convert_seg_to_clf(y_pr), y_gt)
+        clf_bce = self.bce(*self.convert_seg_to_clf(y_pr, y_gt))
         return dice + bce + clf_bce
 
-    def convert_seg_to_clf(self, y_pr):
+    def convert_seg_to_clf(self, y_pr, y_gt):
         """
-        Takes the segmentation logits and converts them to a classification
-        probability.
+        Converts the segmentation logits and labels classification
+        probabilities and labels. Assumes single channel.
         """
-        return torch.max(torch.sigmoid(y_pr).view(-1))
+        batch_size = y_pr.shape[0]
+        y_pr = torch.max(torch.sigmoid(y_pr).view(batch_size, 1, -1), dim=2)[0]
+        y_gt = torch.max(y_gt.view(batch_size, 1, -1), dim=2)[0]
+        return (y_pr, y_gt)
 
 class CrossentropyND(nn.CrossEntropyLoss):
     """
