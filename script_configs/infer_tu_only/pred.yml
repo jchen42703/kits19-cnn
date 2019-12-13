@@ -30,7 +30,7 @@
     encoder: resnet34
     activation: sigmoid
     unet_smp:
-      attention_type: ~ # scse
+      decoder_attention_type: ~ # scse
       classes: 1
       decoder_use_batchnorm: True # inplace for InplaceABN
     # fpn_smp:

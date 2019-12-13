@@ -21,7 +21,7 @@ class BCEDiceLoss(DiceLoss):
     __name__ = 'bce_dice_loss'
 
     def __init__(self, eps=1e-7, activation='sigmoid'):
-        super().__init__(eps, activation)
+        super().__init__(eps=eps, activation=activation)
         self.bce = nn.BCEWithLogitsLoss(reduction='mean')
 
     def forward(self, y_pr, y_gt):
