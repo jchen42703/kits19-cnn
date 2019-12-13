@@ -45,7 +45,8 @@ class SegClfBCEDiceLoss(DiceLoss):
         y_gt = y_gt.float()
         dice = super().forward(y_pr, y_gt)
         bce = self.bce_with_logits(y_pr, y_gt)
-        clf_bce = self.bce(self.convert_seg_to_clf(y_pr))
+        y_gt = 1 if (y_gt>0).any() else 0
+        clf_bce = self.bce(self.convert_seg_to_clf(y_pr), y_gt)
         return dice + bce + clf_bce
 
     def convert_seg_to_clf(self, y_pr):
