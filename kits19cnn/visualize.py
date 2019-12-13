@@ -34,7 +34,8 @@ def plot_scan(scan, start_with, show_every, rows=3, cols=3):
         ax[int(i/cols), int(i%cols)].imshow(scan[ind], cmap="gray")
     plt.show()
 
-def plot_scan_and_mask(scan, mask, start_with, show_every, rows=3, cols=3):
+def plot_scan_and_mask(scan, mask, start_with, show_every, rows=3, cols=3,
+                       display=True):
     """
     Plots multiple scans with the mask overlay throughout your medical image.
     Args:
@@ -46,7 +47,7 @@ def plot_scan_and_mask(scan, mask, start_with, show_every, rows=3, cols=3):
     Returns:
         a plot of multiple scans from the same image
     """
-    fig,ax = plt.subplots(rows, cols, figsize=[4*cols, 4*rows])
+    fig, ax = plt.subplots(rows, cols, figsize=[4*cols, 4*rows])
     for i in range(rows*cols):
         ind = start_with + i*show_every
         ax[int(i/cols), int(i%cols)].set_title("slice %d" % ind)
@@ -54,7 +55,9 @@ def plot_scan_and_mask(scan, mask, start_with, show_every, rows=3, cols=3):
 
         ax[int(i/cols), int(i%cols)].imshow(scan[ind], cmap="gray")
         ax[int(i/cols), int(i%cols)].imshow(mask[ind], cmap="jet", alpha=0.5)
-    plt.show()
+    if display:
+        plt.show()
+    return fig
 
 # FROM: https://github.com/catalyst-team/catalyst/blob/master/catalyst/dl/utils/visualization.py
 def _get_tensorboard_scalars(
