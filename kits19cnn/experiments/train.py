@@ -167,6 +167,7 @@ class TrainExperiment(object):
             "bce_dice_loss": BCEDiceLoss(eps=1.),
             "bce": torch.nn.BCEWithLogitsLoss(),
             "ce_dice_loss": DC_and_CE_loss(soft_dice_kwargs={}, ce_kwargs={}),
+            "SegClfBCEDiceLoss": SegClfBCEDiceLoss(), 
         }
         # re-initializing criterion with kwargs
         loss_kwargs = self.criterion_params.get(loss_name)

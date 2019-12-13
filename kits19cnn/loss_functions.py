@@ -18,11 +18,11 @@ from segmentation_models_pytorch.utils.losses import DiceLoss
 from kits19cnn.utils import softmax_helper, sum_tensor
 
 class BCEDiceLoss(DiceLoss):
-    __name__ = 'bce_dice_loss'
+    __name__ = "bce_dice_loss"
 
-    def __init__(self, eps=1e-7, activation='sigmoid'):
+    def __init__(self, eps=1e-7, activation="sigmoid"):
         super().__init__(eps=eps, activation=activation)
-        self.bce = nn.BCEWithLogitsLoss(reduction='mean')
+        self.bce = nn.BCEWithLogitsLoss(reduction="mean")
 
     def forward(self, y_pr, y_gt):
         y_pr = y_pr.float()
@@ -30,6 +30,30 @@ class BCEDiceLoss(DiceLoss):
         dice = super().forward(y_pr, y_gt)
         bce = self.bce(y_pr, y_gt)
         return dice + bce
+
+class SegClfBCEDiceLoss(DiceLoss):
+    """
+    Segmentation BCEDiceLoss + Classification BCELoss
+    """
+    def __init__(self, eps=1e-7, activation="sigmoid"):
+        super().__init__(eps=eps, activation=activation)
+        self.bce_with_logits = nn.BCEWithLogitsLoss(reduction="mean")
+        self.bce = nn.BCELoss(reduction="mean")
+
+    def forward(self, y_pr, y_gt):
+        y_pr = y_pr.float()
+        y_gt = y_gt.float()
+        dice = super().forward(y_pr, y_gt)
+        bce = self.bce_with_logits(y_pr, y_gt)
+        clf_bce = self.bce(self.convert_seg_to_clf(y_pr))
+        return dice + bce + clf_bce
+
+    def convert_seg_to_clf(self, y_pr):
+        """
+        Takes the segmentation logits and converts them to a classification
+        probability.
+        """
+        return torch.max(torch.sigmoid(y_pr).view(-1))
 
 class CrossentropyND(nn.CrossEntropyLoss):
     """
